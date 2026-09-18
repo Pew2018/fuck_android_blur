@@ -15,21 +15,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
       - name: Install SDK and NDK
         run: sdkmanager "platform-tools" "platforms;android-35" "ndk;27.2.12479018"
+
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zip
+
       - name: Build module
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.2.12479018
-        run: chmod +x build.sh service.sh action.sh && ./build.sh
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          chmod +x build.sh service.sh action.sh
+          ./build.sh
+
       - name: Upload module ZIP
         uses: actions/upload-artifact@v4
         with:
