@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <strings.h>
 #include <sys/system_properties.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
