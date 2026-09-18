@@ -11,7 +11,7 @@ for p in com.android.systemui com.google.android.apps.nexuslauncher; do
   pid="$(pidof "$p" 2>/dev/null | awk '{print $1}')"
   if [ -n "$pid" ]; then
     printf '%s pid=%s\n' "$p" "$pid"
-    grep -F 'libpixelblur.so' "/proc/$pid/maps" 2>/dev/null | head -n 2 || true
+    grep -E 'arm64-v8a\.so|libpixelblur\.so' "/proc/$pid/maps" 2>/dev/null | head -n 2 || true
   else
     printf '%s not running\n' "$p"
   fi
