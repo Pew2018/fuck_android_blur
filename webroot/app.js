@@ -1,4 +1,5 @@
-import { exec } from 'kernelsu';
+// KernelSU Next exposes the WebUI bridge as window.ksu.
+const ksuApi = window.ksu;
 
 const $ = id => document.getElementById(id);
 
@@ -10,8 +11,28 @@ const toast = s => {
 };
 
 async function sh(cmd) {
-  const r = await exec(cmd);
-  return (r.stdout || '').trim();
+  if (!ksuApi || typeof ksuApi.exec !== 'function') {
+    throw new Error('KernelSU Next WebUI API (window.ksu.exec) 不可用');
+  }
+
+  const marker = '__PIXELBLUR_EXIT__';
+  const raw = String(
+    ksuApi.exec(cmd + '; printf "\\n' + marker + '%s\\n" "$?"') ?? ''
+  );
+
+  const index = raw.lastIndexOf(marker);
+  if (index < 0) {
+    return raw.trim();
+  }
+
+  const stdout = raw.slice(0, index).trim();
+  const exitCode = raw.slice(index + marker.length).trim();
+
+  if (exitCode !== '0') {
+    throw new Error(stdout || ('命令执行失败，exit=' + exitCode));
+  }
+
+  return stdout;
 }
 
 async function setProp(key, value) {
@@ -62,7 +83,11 @@ async function refresh() {
     'printf "\nHook log:\n"; logcat -d -t 60 -s PixelBlur:I 2>/dev/null || true'
   );
 
-  $('diag').textContent = diag || '无诊断输出';
+    $('diag').textContent = diag || '无诊断输出';
+  } catch (e) {
+    $('status').textContent = '读取状态失败：' + (e?.message || String(e));
+    $('diag').textContent = '诊断读取失败：' + (e?.message || String(e));
+  }
 }
 
 async function toggle(id, on) {
