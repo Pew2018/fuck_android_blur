@@ -36,6 +36,8 @@ cmake -S "$ROOT" -B "$BUILD" \
 
 cmake --build "$BUILD" --parallel
 
+chmod 0755 "$ROOT/service.sh" "$ROOT/action.sh"
+
 rm -rf "$ROOT/lib"
 mkdir -p "$ROOT/lib/arm64-v8a"
 cp "$BUILD/libpixelblur.so" "$ROOT/lib/arm64-v8a/libpixelblur.so"
