@@ -11,9 +11,10 @@
 <div class="title">Pixel Blur Controller</div>
 <div class="subtitle">Android 16 · Pixel UI</div>
 </header>
+
 <main>
 <section class="card">
-<div class="section-title">Blur 控制</div>
+<div class="section-title">常用 Blur 控制</div>
 
 <div class="row">
 <div><div class="label">Native Hook</div><div class="desc">安全模式总开关；开启后需重启</div></div>
@@ -24,7 +25,18 @@
 <div><div class="label">全局 Blur</div><div class="desc">Android 全局窗口 Blur</div></div>
 <label class="switch"><input id="global" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
 </div>
+</section>
 
+<section class="card collapse-card">
+<button id="blurMoreToggle" class="card-toggle" type="button" aria-expanded="false">
+<div>
+<div class="section-title">其他 Blur 控制</div>
+<div id="blurMoreSummary" class="card-summary">SystemUI 与 Launcher / Recents</div>
+</div>
+<span id="blurMoreIcon" class="card-icon">＋</span>
+</button>
+
+<div id="blurMoreContent" class="collapse-content hidden">
 <div class="row">
 <div><div class="label">SystemUI Blur</div><div class="desc">Notification Shade / Quick Settings</div></div>
 <label class="switch"><input id="systemui" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
@@ -34,6 +46,29 @@
 <div><div class="label">Launcher / Recents Blur</div><div class="desc">Pixel Launcher / Recents</div></div>
 <label class="switch"><input id="launcher" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
 </div>
+</div>
+</section>
+
+<section class="card">
+<div class="section-title">界面设置</div>
+
+<div class="row">
+<div>
+<div class="label">自动跟随系统主题</div>
+<div class="desc">进入 WebUI 自动检测手机当前深色模式，并自动同步</div>
+</div>
+<label class="switch"><input id="themeAuto" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
+</div>
+
+<div class="row">
+<div>
+<div class="label">深色模式</div>
+<div id="themeManualDesc" class="desc">关闭自动跟随后手动控制 WebUI</div>
+</div>
+<label class="switch"><input id="themeDark" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
+</div>
+
+<div id="themeState" class="theme-state">正在检测手机当前主题…</div>
 </section>
 
 <section class="card">

@@ -84,6 +84,154 @@ async function setGlobalBlur(on) {
   }
 }
 
+async function detectSystemTheme() {
+  try {
+    const raw = await sh(
+      'mode=$(/system/bin/dumpsys uimode 2>/dev/null | ' +
+      '/system/bin/grep -m 1 "mNightMode=" | /system/bin/sed "s/.*mNightMode=//;s/ .*$//"); ' +
+      'computed=$(/system/bin/dumpsys uimode 2>/dev/null | ' +
+      '/system/bin/grep -m 1 "mComputedNightMode=" | /system/bin/sed "s/.*mComputedNightMode=//;s/ .*$//"); ' +
+      'printf "mode=%s\\ncomputed=%s\\n" "$mode" "$computed"'
+    );
+
+    const values = Object.fromEntries(
+      raw.split('\n').filter(Boolean).map(line => {
+        const i = line.indexOf('=');
+        return i >= 0
+          ? [line.slice(0, i), line.slice(i + 1)]
+          : [line, ''];
+      })
+    );
+
+    if (values.computed === 'true' || values.computed === 'false') {
+      return {
+        dark: values.computed === 'true',
+        source: '系统 UiModeManager',
+        mode: values.mode || 'unknown',
+      };
+    }
+  } catch (_) {
+  }
+
+  const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+  return {
+    dark: Boolean(media?.matches),
+    source: 'WebView prefers-color-scheme',
+    mode: 'fallback',
+  };
+}
+
+function applyTheme(dark) {
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  $('themeDark').checked = dark;
+}
+
+function getStoredThemeSettings() {
+  let followSystem = true;
+  try {
+    const stored = localStorage.getItem('pixelBlur.theme.followSystem');
+    if (stored !== null) followSystem = stored !== '0';
+  } catch (_) {
+  }
+  return { followSystem };
+}
+
+function saveThemeFollowSystem(on) {
+  try {
+    localStorage.setItem('pixelBlur.theme.followSystem', on ? '1' : '0');
+  } catch (_) {
+  }
+}
+
+function updateThemeControls(followSystem, systemState) {
+  $('themeAuto').checked = followSystem;
+  $('themeDark').disabled = followSystem;
+
+  if (followSystem && systemState) {
+    applyTheme(systemState.dark);
+    $('themeState').textContent =
+      '自动检测：手机当前为' + (systemState.dark ? '深色模式' : '浅色模式') +
+      ' · ' + systemState.source;
+  } else {
+    $('themeState').textContent =
+      '手动模式：WebUI 外观由“深色模式”开关控制';
+  }
+}
+
+async function syncSystemTheme() {
+  const systemState = await detectSystemTheme();
+  const { followSystem } = getStoredThemeSettings();
+
+  if (followSystem) {
+    updateThemeControls(true, systemState);
+  } else {
+    $('themeAuto').checked = false;
+    $('themeDark').disabled = false;
+    $('themeState').textContent =
+      '自动检测已关闭 · 手动控制 WebUI 外观';
+  }
+
+  return systemState;
+}
+
+async function toggleThemeAuto(on) {
+  saveThemeFollowSystem(on);
+
+  if (on) {
+    const state = await detectSystemTheme();
+    updateThemeControls(true, state);
+    toast('已切换为自动跟随系统主题。');
+  } else {
+    const currentDark = document.documentElement.dataset.theme === 'dark';
+    $('themeAuto').checked = false;
+    $('themeDark').disabled = false;
+    $('themeDark').checked = currentDark;
+    $('themeState').textContent =
+      '自动检测已关闭 · 手动控制 WebUI 外观';
+    toast('已关闭自动跟随，可手动设置深色模式。');
+  }
+}
+
+function toggleThemeDark(on) {
+  saveThemeFollowSystem(false);
+  $('themeAuto').checked = false;
+  $('themeDark').disabled = false;
+  applyTheme(on);
+  $('themeState').textContent =
+    '自动检测已关闭 · 手动控制 WebUI 外观';
+  toast(on ? 'WebUI 已切换为深色模式。' : 'WebUI 已切换为浅色模式。');
+}
+
+let themePollTimer = null;
+
+function startThemeAutoDetection() {
+  clearInterval(themePollTimer);
+
+  themePollTimer = setInterval(async () => {
+    const { followSystem } = getStoredThemeSettings();
+    if (!followSystem || document.hidden) return;
+
+    try {
+      const systemState = await detectSystemTheme();
+      updateThemeControls(true, systemState);
+    } catch (_) {
+    }
+  }, 10000);
+}
+
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden) return;
+
+  const { followSystem } = getStoredThemeSettings();
+  if (!followSystem) return;
+
+  try {
+    const systemState = await detectSystemTheme();
+    updateThemeControls(true, systemState);
+  } catch (_) {
+  }
+});
+
 async function refreshStatus() {
   const raw = await sh(
     'printf "hook=%s\\nglobal=%s\\nsystemui=%s\\nlauncher=%s\\n" ' +
@@ -122,7 +270,11 @@ async function refreshDiagnostics() {
       'model=$(/system/bin/getprop ro.product.model); ' +
       'build=$(/system/bin/getprop ro.build.display.id); ' +
       'ksu=$(/data/adb/ksud -V 2>/dev/null || true); ' +
-      'printf "Model: %s\\nBuild: %s\\nKernelSU: %s\\n" "$model" "$build" "$ksu"; ' +
+      'night=$(/system/bin/dumpsys uimode 2>/dev/null | ' +
+      '/system/bin/grep -m 1 "mComputedNightMode=" | ' +
+      '/system/bin/sed "s/.*mComputedNightMode=//;s/ .*$//"); ' +
+      'printf "Model: %s\\nBuild: %s\\nKernelSU: %s\\nSystem dark mode: %s\\n" ' +
+      '"$model" "$build" "$ksu" "$night"; ' +
       'printf "\\nlibpixelblur injection:\\n"; ' +
       'for p in com.android.systemui com.google.android.apps.nexuslauncher; do ' +
       'pid=$(/system/bin/pidof "$p" 2>/dev/null | /system/bin/awk "{print \\$1}"); ' +
@@ -192,6 +344,58 @@ $('hook').addEventListener('change', e => toggle('hook', e.target.checked));
 $('global').addEventListener('change', e => toggle('global', e.target.checked));
 $('systemui').addEventListener('change', e => toggle('systemui', e.target.checked));
 $('launcher').addEventListener('change', e => toggle('launcher', e.target.checked));
+
+$('themeAuto').addEventListener('change', async e => {
+  try {
+    await toggleThemeAuto(e.target.checked);
+  } catch (error) {
+    toast('主题设置失败：' + (error?.message || String(error)));
+    $('themeAuto').checked = true;
+    try {
+      await syncSystemTheme();
+    } catch (_) {
+    }
+  }
+});
+
+$('themeDark').addEventListener('change', e => toggleThemeDark(e.target.checked));
+
+$('blurMoreToggle').addEventListener('click', () => {
+  const content = $('blurMoreContent');
+  const opening = content.classList.contains('hidden');
+  content.classList.toggle('hidden', !opening);
+  $('blurMoreToggle').setAttribute('aria-expanded', String(opening));
+  $('blurMoreIcon').textContent = opening ? '－' : '＋';
+});
+
 $('refresh').addEventListener('click', refresh);
 
-refresh();
+async function initTheme() {
+  // Instant visual fallback, followed by privileged system detection.
+  const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+  if (media) applyTheme(media.matches);
+
+  const { followSystem } = getStoredThemeSettings();
+  $('themeAuto').checked = followSystem;
+  $('themeDark').disabled = followSystem;
+
+  try {
+    const systemState = await detectSystemTheme();
+
+    if (followSystem) {
+      updateThemeControls(true, systemState);
+    } else {
+      updateThemeControls(false, systemState);
+    }
+  } catch (_) {
+    $('themeState').textContent =
+      '系统主题检测失败 · 当前使用 WebView 主题状态';
+  }
+
+  startThemeAutoDetection();
+}
+
+(async function init() {
+  await initTheme();
+  await refresh();
+})();

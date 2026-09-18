@@ -1,0 +1,81 @@
+name: Release Pixel Blur Controller
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER=""
+          if [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          else
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 3 -type f -name sdkmanager -perm -111 2>/dev/null | sort | tail -n 1)"
+          fi
+          test -n "$SDKMANAGER"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          export PATH="$(dirname "$SDKMANAGER"):$SDK_ROOT/platform-tools:$PATH"
+          /usr/bin/yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "ndk;27.2.12479018"
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zip
+
+      - name: Build module
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          chmod +x build.sh service.sh action.sh
+          ./build.sh
+
+      - name: Verify release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^version=0.2.0$' module.prop
+          grep -q '^author=Pew2018$' module.prop
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" pixelblur-controller-*.zip             --title "Pixel Blur Controller ${GITHUB_REF_NAME}"             --notes-file <(cat <<'EOF'
+          # Pixel Blur Controller v0.2.0
+
+          Stable release for Android 16 Pixel UI blur control.
+
+          ## Highlights
+
+          - Standard Zygisk app-process native interception.
+          - Independent SystemUI and Launcher / Recents blur controls.
+          - WebUI separates common controls from advanced blur controls.
+          - WebUI supports automatic system dark-mode detection and manual dark mode.
+          - Native Hook remains OFF by default.
+          - No LSPosed/Xposed and no APK patching.
+
+          Module author: Pew2018
+          EOF
+          )
