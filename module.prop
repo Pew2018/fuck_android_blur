@@ -1,0 +1,6 @@
+id=pixelblur-controller
+name=Pixel Blur Controller
+version=0.1.0-dev2
+versionCode=1002
+author=PixelBlur Contributors
+description=Android 16 Pixel Blur Controller using KernelSU WebUI and ZygiskNext native interception
