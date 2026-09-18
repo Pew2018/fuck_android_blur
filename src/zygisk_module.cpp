@@ -1,8 +1,10 @@
+#include <android/log.h>
 #include <jni.h>
 #include <sys/system_properties.h>
 #include <unistd.h>
 
 #include <cstdarg>
+#include <strings.h>
 #include <cstring>
 #include <string>
 
