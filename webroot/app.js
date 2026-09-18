@@ -42,7 +42,13 @@ async function sh(cmd) {
 }
 
 async function setProp(key, value) {
-  await sh('setprop ' + key + ' ' + (value ? 1 : 0));
+  const expected = value ? '1' : '0';
+  return await sh(
+    '/system/bin/setprop ' + key + ' ' + expected +
+    '; actual=$(/system/bin/getprop ' + key + ');' +
+    'printf "requested=%s\\nactual=%s" "' + expected + '" "$actual";' +
+    '[ "$actual" = "' + expected + '" ]'
+  );
 }
 
 async function refresh() {
@@ -115,17 +121,23 @@ async function refreshDiagnostics() {
 async function toggle(id, on) {
   try {
     if (id === 'hook') {
-      await setProp('persist.sys.pixelblur.hook', on);
-      toast(on ? 'Native Hook 已开启；重启后才会注入并拦截。' : 'Native Hook 已关闭；重启后完全停用。');
+      const result = await setProp('persist.sys.pixelblur.hook', on);
+      toast((on ? 'Native Hook 已开启：' : 'Native Hook 已关闭：') + result.replace(/\\n/g, ' '));
     } else if (id === 'global') {
-      await sh('settings put global disable_window_blurs ' + (on ? 0 : 1));
-      toast('Global Blur 设置已保存。');
+      const expected = on ? '0' : '1';
+      const result = await sh(
+        '/system/bin/settings put global disable_window_blurs ' + expected +
+        '; actual=$(/system/bin/settings get global disable_window_blurs);' +
+        'printf "requested=%s\\nactual=%s" "' + expected + '" "$actual";' +
+        '[ "$actual" = "' + expected + '" ]'
+      );
+      toast('Global Blur：' + result.replace(/\\n/g, ' '));
     } else if (id === 'systemui') {
-      await setProp('persist.sys.pixelblur.systemui', on);
-      toast('SystemUI Blur 设置已保存；Native Hook 开启时下次启动生效。');
+      const result = await setProp('persist.sys.pixelblur.systemui', on);
+      toast('SystemUI Blur：' + result.replace(/\\n/g, ' '));
     } else if (id === 'launcher') {
-      await setProp('persist.sys.pixelblur.launcher', on);
-      toast('Launcher Blur 设置已保存；Native Hook 开启时下次启动生效。');
+      const result = await setProp('persist.sys.pixelblur.launcher', on);
+      toast('Launcher Blur：' + result.replace(/\\n/g, ' '));
     }
 
     await refresh();
