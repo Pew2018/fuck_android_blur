@@ -1,8 +1,8 @@
 #include "zygisk_next_api.h"
 
 #include <android/log.h>
-#include <fcntl.h>
-#include <stdarg.h>
+#include <dlfcn.h>
+#include <link.h>
 #include <strings.h>
 #include <sys/system_properties.h>
 #include <unistd.h>
@@ -15,16 +15,15 @@ namespace {
 constexpr const char* kTag = "PixelBlur";
 constexpr const char* kLauncherProcess = "com.google.android.apps.nexuslauncher";
 constexpr const char* kSystemUiProcess = "com.android.systemui";
-constexpr const char* kLibGui = "/system/lib64/libgui.so";
+constexpr const char* kAndroidRuntime = "libandroid_runtime.so";
 
 using SetBlurFn =
-        void* (*)(void* transaction, const void* surfaceControlSp, int radius);
-using GetNameFn = const std::string& (*)(const void* surfaceControl);
+        void* (*)(void* transaction, const void* surfaceControl, int radius);
 
 static ZygiskNextAPI gApi{};
 static SetBlurFn gOriginalSetBlur = nullptr;
-static GetNameFn gGetName = nullptr;
 static std::string gProcess;
+static bool gHookInstalled = false;
 
 bool propBool(const char* key, bool defaultValue) {
     char value[PROP_VALUE_MAX]{};
@@ -52,7 +51,14 @@ void logLine(const char* fmt, ...) {
     va_end(ap);
 }
 
-bool shouldDisableForProcess() {
+bool hookEnabled() {
+    // Safety-first: the native interception is opt-in.
+    return propBool("persist.sys.pixelblur.hook", false);
+}
+
+bool blurDisabledForThisProcess() {
+    if (!hookEnabled()) return false;
+
     if (gProcess == kSystemUiProcess) {
         return !propBool("persist.sys.pixelblur.systemui", true);
     }
@@ -64,175 +70,115 @@ bool shouldDisableForProcess() {
     return false;
 }
 
-bool targetSurfaceMatches(const void* surfaceControlSp) {
-    if (!surfaceControlSp || !gGetName) return false;
-
-    const void* surfaceControl =
-            *reinterpret_cast<const void* const*>(surfaceControlSp);
-
-    if (!surfaceControl) return false;
-
-    const std::string& name = gGetName(surfaceControl);
-
-    if (gProcess == kSystemUiProcess) {
-        return name.find("NotificationShade") != std::string::npos;
-    }
-
-    if (gProcess == kLauncherProcess) {
-        return name.find("NexusLauncherActivity") != std::string::npos;
-    }
-
-    return false;
-}
-
 void* hookedSetBlur(
         void* transaction,
-        const void* surfaceControlSp,
+        const void* surfaceControl,
         int radius) {
 
     int outRadius = radius;
 
-    if (radius > 0 &&
-        shouldDisableForProcess() &&
-        targetSurfaceMatches(surfaceControlSp)) {
-
+    if (radius > 0 && blurDisabledForThisProcess()) {
         outRadius = 0;
 
         if (propBool("persist.sys.pixelblur.debug", false)) {
-            const void* surfaceControl =
-                    surfaceControlSp
-                        ? *reinterpret_cast<const void* const*>(surfaceControlSp)
-                        : nullptr;
-
-            if (surfaceControl && gGetName) {
-                const std::string& name = gGetName(surfaceControl);
-                logLine(
-                        "%s: radius %d -> 0 on %s",
-                        gProcess.c_str(),
-                        radius,
-                        name.c_str());
-            } else {
-                logLine(
-                        "%s: radius %d -> 0",
-                        gProcess.c_str(),
-                        radius);
-            }
+            logLine("%s: setBackgroundBlurRadius %d -> 0",
+                    gProcess.c_str(), radius);
         }
     }
 
     return gOriginalSetBlur
-        ? gOriginalSetBlur(transaction, surfaceControlSp, outRadius)
+        ? gOriginalSetBlur(transaction, surfaceControl, outRadius)
         : transaction;
 }
 
-void hookInTargetProcess() {
-    auto resolver =
-            gApi.newSymbolResolver(kLibGui, nullptr);
+uintptr_t findLibraryBase(const char* soname) {
+    uintptr_t result = 0;
 
-    if (!resolver) {
-        logLine("Could not create libgui symbol resolver");
+    dl_iterate_phdr(
+        [](struct dl_phdr_info* info, size_t, void* data) -> int {
+            if (!info->dlpi_name || !data) return 0;
+
+            const char* slash = strrchr(info->dlpi_name, '/');
+            const char* name = slash ? slash + 1 : info->dlpi_name;
+
+            if (!strcmp(name, static_cast<const char*>(data))) {
+                // data is only used as a lookup string here; the base is
+                // returned through a separate static variable below.
+            }
+            return 0;
+        },
+        nullptr);
+
+    struct SearchState {
+        const char* wanted;
+        uintptr_t* result;
+    } state{soname, &result};
+
+    dl_iterate_phdr(
+        [](struct dl_phdr_info* info, size_t, void* raw) -> int {
+            auto* state = static_cast<SearchState*>(raw);
+            if (!info->dlpi_name || !state) return 0;
+
+            const char* slash = strrchr(info->dlpi_name, '/');
+            const char* name = slash ? slash + 1 : info->dlpi_name;
+
+            if (!strcmp(name, state->wanted)) {
+                *state->result = static_cast<uintptr_t>(info->dlpi_addr);
+                return 1;
+            }
+            return 0;
+        },
+        &state);
+
+    return result;
+}
+
+void installPltHook() {
+    if (!gApi.pltHook) {
+        logLine("ZygiskNext PLT hook API unavailable");
         return;
     }
 
-    constexpr const char* kSetBlurSymbol =
+    const uintptr_t base = findLibraryBase(kAndroidRuntime);
+    if (!base) {
+        logLine("libandroid_runtime.so not found");
+        return;
+    }
+
+    constexpr const char* kBlurSymbol =
             "_ZN7android21SurfaceComposerClient11Transaction23setBackgroundBlurRadiusERKNS_2spINS_14SurfaceControlEEEi";
 
-    constexpr const char* kGetNameSymbol =
-            "_ZNK7android14SurfaceControl7getNameEv";
-
-    size_t symbolSize = 0;
-    void* target =
-            gApi.symbolLookup(
-                    resolver,
-                    kSetBlurSymbol,
-                    false,
-                    &symbolSize);
-
-    if (!target) {
-        symbolSize = 0;
-        target =
-                gApi.symbolLookup(
-                        resolver,
-                        "setBackgroundBlurRadius",
-                        true,
-                        &symbolSize);
-
-        if (target) {
-            logLine(
-                    "Using prefix-resolved setBackgroundBlurRadius symbol");
-        }
-    }
-
-    size_t nameSize = 0;
-    void* nameFn =
-            gApi.symbolLookup(
-                    resolver,
-                    kGetNameSymbol,
-                    false,
-                    &nameSize);
-
-    if (nameFn) {
-        gGetName = reinterpret_cast<GetNameFn>(nameFn);
-    }
-
-    if (!target) {
-        logLine(
-                "setBackgroundBlurRadius symbol not found; hook disabled");
-        gApi.freeSymbolResolver(resolver);
-        return;
-    }
-
-    if (!gGetName) {
-        logLine(
-                "SurfaceControl::getName symbol not found; hook disabled");
-        gApi.freeSymbolResolver(resolver);
-        return;
-    }
-
     const int result =
-            gApi.inlineHook(
-                    target,
+            gApi.pltHook(
+                    reinterpret_cast<void*>(base),
+                    kBlurSymbol,
                     reinterpret_cast<void*>(&hookedSetBlur),
                     reinterpret_cast<void**>(&gOriginalSetBlur));
 
     if (result != ZN_SUCCESS || !gOriginalSetBlur) {
-        logLine(
-                "inlineHook(setBackgroundBlurRadius) failed: %d",
-                result);
-        gApi.freeSymbolResolver(resolver);
+        logLine("PLT hook failed: %d", result);
         return;
     }
 
-    logLine(
-            "Native blur hook active in %s",
-            gProcess.c_str());
-
-    gApi.freeSymbolResolver(resolver);
+    gHookInstalled = true;
+    logLine("Safe PLT blur hook installed in %s", gProcess.c_str());
 }
 
 void onModuleLoaded(
-        void* /*self_handle*/,
+        void*,
         const struct ZygiskNextAPI* api) {
 
     if (!api) return;
 
-    // ZygiskNext explicitly requires the API table to be copied if it is
-    // accessed after this callback returns.
     memcpy(&gApi, api, sizeof(gApi));
 
     char cmdline[256]{};
-
-    const int fd =
-            open("/proc/self/cmdline", O_RDONLY | O_CLOEXEC);
+    const int fd = open("/proc/self/cmdline", O_RDONLY | O_CLOEXEC);
 
     if (fd >= 0) {
-        const ssize_t n =
-                read(fd, cmdline, sizeof(cmdline) - 1);
+        const ssize_t n = read(fd, cmdline, sizeof(cmdline) - 1);
         close(fd);
-
-        if (n > 0) {
-            cmdline[n] = '\0';
-        }
+        if (n > 0) cmdline[n] = '\0';
     }
 
     gProcess = cmdline;
@@ -242,11 +188,14 @@ void onModuleLoaded(
         return;
     }
 
-    logLine(
-            "Loaded into target process: %s",
-            gProcess.c_str());
+    logLine("Loaded into target process: %s (hook=%d)",
+            gProcess.c_str(), hookEnabled() ? 1 : 0);
 
-    hookInTargetProcess();
+    if (!hookEnabled()) {
+        return;
+    }
+
+    installPltHook();
 }
 
 } // namespace
