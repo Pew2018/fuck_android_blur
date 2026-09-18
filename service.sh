@@ -1,14 +1,32 @@
 #!/system/bin/sh
 
-# Safety-first default: native interception is OFF unless explicitly enabled.
-[ -n "$(getprop persist.sys.pixelblur.hook)" ] ||
-    setprop persist.sys.pixelblur.hook 0
+# Persistent settings are stored in KernelSU Module Config.
+# service.sh restores them into Android properties for the native library.
+MODULE_ID="pixelblur-controller"
 
-[ -n "$(getprop persist.sys.pixelblur.systemui)" ] ||
-    setprop persist.sys.pixelblur.systemui 1
+config_get() {
+    ksud module config get "$1" 2>/dev/null
+}
 
-[ -n "$(getprop persist.sys.pixelblur.launcher)" ] ||
-    setprop persist.sys.pixelblur.launcher 1
+read_or_init() {
+    key="$1"
+    default="$2"
+    value="$(config_get "$key")"
+    case "$value" in
+        0|1) printf '%s' "$value" ;;
+        *)
+            ksud module config set "$key" "$default" >/dev/null 2>&1 || true
+            printf '%s' "$default"
+            ;;
+    esac
+}
 
-[ -n "$(getprop persist.sys.pixelblur.debug)" ] ||
-    setprop persist.sys.pixelblur.debug 0
+hook="$(read_or_init hook 0)"
+systemui="$(read_or_init systemui 1)"
+launcher="$(read_or_init launcher 1)"
+debug="$(read_or_init debug 0)"
+
+setprop persist.sys.pixelblur.hook "$hook"
+setprop persist.sys.pixelblur.systemui "$systemui"
+setprop persist.sys.pixelblur.launcher "$launcher"
+setprop persist.sys.pixelblur.debug "$debug"
