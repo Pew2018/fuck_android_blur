@@ -1,6 +1,12 @@
 # Pixel Blur Controller
 
-KernelSU module + ZygiskNext native module for controlling Android 16 Pixel UI Blur.
+KernelSU module + standard Zygisk native module for controlling Android 16 Pixel UI Blur.
+
+## v0.2.0-test2
+
+The test branch now uses the standard Zygisk app-process module interface. Runtime testing on the development Pixel 8 Pro confirmed direct interception of `android/view/SurfaceControl.nativeSetBackgroundBlurRadius(JJI)V` in both target processes. With the corresponding component switch OFF, observed calls were changed from Launcher/Recents radius `90` to `0`, and SystemUI calls ranging from `35` through `102` to `0`.
+
+The `main` branch and v0.1.1 release are unchanged by this test work.
 
 ## v0.1.1
 
@@ -12,7 +18,7 @@ The UI design is intentionally kept in a simple Android 8-era Pixel / Material s
 
 ## Controls
 
-- **Native Hook** — opt-in master switch, default OFF. Changing it requires a reboot before the ZygiskNext interception is active.
+- **Native Hook** — opt-in master switch, default OFF. Changing it requires a reboot before the Zygisk interception is active.
 - **Global Blur** — controls Android's global `disable_window_blurs` setting.
 - **SystemUI Blur** — controls Notification Shade / Quick Settings interception when Native Hook is enabled.
 - **Launcher / Recents Blur** — controls Pixel Launcher / Recents interception when Native Hook is enabled.
@@ -24,18 +30,16 @@ The component switches are only used by the native interception when **Native Ho
 
 The native interception is **disabled by default**.
 
-When enabled, the module injects only into:
+When enabled, the standard Zygisk module loads only into:
 
 - `com.android.systemui`
 - `com.google.android.apps.nexuslauncher`
 
-It installs a PLT hook in `libandroid_runtime.so` for:
+It uses Zygisk's `hookJniNativeMethods()` to replace `android/view/SurfaceControl.nativeSetBackgroundBlurRadius(JJI)V`. The hook changes only the blur-radius argument before forwarding to the original JNI implementation.
 
-`android::SurfaceComposerClient::Transaction::setBackgroundBlurRadius(const sp<SurfaceControl>&, int)`
+It does not inline-hook `libgui.so`, call `SurfaceControl::getName()`, modify the SystemUI or Launcher APKs, or replace transaction scheduling.
 
-The hook changes only the blur-radius argument. It does not inline-hook `libgui.so`, call `SurfaceControl::getName()`, modify the SystemUI or Launcher APKs, or replace the original transaction scheduling.
-
-If the PLT hook cannot be installed, the native library fails open and leaves the original behavior intact.
+If the JNI hook cannot be installed, the native library fails open and leaves the original behavior intact.
 
 ## Development / validation target
 
@@ -44,6 +48,7 @@ If the PLT hook cannot be installed, the native library fails open and leaves th
 - Build `CP1A.260505.005.A1`
 - Pixel Launcher 16
 - KernelSU Next / `ksud 3.3.0` (uapi 2)
+- Standard Zygisk compatibility provided by the installed Zygisk implementation
 
 Observed SurfaceFlinger blur radii on the development device:
 
