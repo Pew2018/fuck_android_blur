@@ -2,7 +2,7 @@ name: Build Pixel Blur Controller
 
 on:
   push:
-    branches: [main]
+    branches: [main, "ci/**"]
   pull_request:
   workflow_dispatch:
 
@@ -20,20 +20,28 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK and NDK
-        run: sdkmanager "platform-tools" "platforms;android-35" "ndk;27.2.12479018"
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_SDK_ROOT="\${ANDROID_SDK_ROOT:-\${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          export PATH="\$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:\$ANDROID_SDK_ROOT/cmdline-tools/16.0/bin:\$ANDROID_SDK_ROOT/platform-tools:\$PATH"
+          echo "ANDROID_SDK_ROOT=\$ANDROID_SDK_ROOT" >> "\$GITHUB_ENV"
+          echo "\$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "\$GITHUB_PATH"
+          echo "\$ANDROID_SDK_ROOT/platform-tools" >> "\$GITHUB_PATH"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install "platform-tools" "platforms;android-35" "ndk;27.2.12479018"
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zip
 
       - name: Build module
+        shell: bash
         run: |
-          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          set -euo pipefail
+          export ANDROID_NDK_HOME="\$ANDROID_SDK_ROOT/ndk/27.2.12479018"
           chmod +x build.sh service.sh action.sh
           ./build.sh
 
