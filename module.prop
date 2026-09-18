@@ -1,6 +1,6 @@
 id=pixelblur-controller
 name=Pixel Blur Controller
-version=0.1.1-dev3
-versionCode=1013
+version=0.1.1-dev4
+versionCode=1014
 author=PixelBlur Contributors
 description=Android 16 Pixel UI Blur Controller using KernelSU WebUI and ZygiskNext safe PLT interception
