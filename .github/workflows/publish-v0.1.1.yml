@@ -1,0 +1,66 @@
+name: Publish v0.1.1
+
+on:
+  push:
+    branches: [publish/v0.1.1]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          ref: c6edba63ffecea8bb3e9635e2166848f5af4d196
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER=""
+          if [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          else
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 3 -type f -name sdkmanager -perm -111 2>/dev/null | sort | tail -n 1)"
+          fi
+          test -n "$SDKMANAGER"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          export PATH="$(dirname "$SDKMANAGER"):$SDK_ROOT/platform-tools:$PATH"
+          /usr/bin/yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "ndk;27.2.12479018"
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zip
+
+      - name: Build module
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          chmod +x build.sh service.sh action.sh
+          ./build.sh
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ZIP="$(find . -maxdepth 1 -type f -name 'pixelblur-controller-*.zip' | head -n 1)"
+          test -n "$ZIP"
+          gh release create v0.1.1 "$ZIP" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target c6edba63ffecea8bb3e9635e2166848f5af4d196 \
+            --title "Pixel Blur Controller v0.1.1" \
+            --notes "First runtime-validated release on the development Pixel 8 Pro. KernelSU Next WebUI state reading and setting changes verified; Native Hook defaults to OFF."
