@@ -6,7 +6,6 @@ on:
       - "v*"
     branches:
       - "release/**"
-      - "v*"
 
 permissions:
   contents: write
@@ -57,39 +56,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q "^version=0.2.0$" module.prop
-          grep -q "^author=Pew2018$" module.prop
-
-      - name: Prepare release notes
-        shell: bash
-        run: |
-          cat > release-notes.md <<EOF
-# Pixel Blur Controller v0.2.0
-
-Stable release for Android 16 Pixel UI blur control.
-
-## Highlights
-
-- Standard Zygisk app-process native interception.
-- Independent SystemUI and Launcher / Recents blur controls.
-- WebUI separates common controls from advanced blur controls.
-- WebUI supports automatic system dark-mode detection and manual dark mode.
-- Native Hook remains OFF by default.
-- No LSPosed/Xposed and no APK patching.
-
-Module author: Pew2018
-EOF
+          grep -q '^version=0.2.0$' module.prop
+          grep -q '^author=Pew2018$' module.prop
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           set -euo pipefail
-          version="$(sed -n "s/^version=//p" module.prop)"
+          version="$(sed -n 's/^version=//p' module.prop)"
           tag="v${version}"
           gh release delete "release/${tag}" --yes --cleanup-tag || true
-          gh release create "$tag" pixelblur-controller-*.zip \
-            --target "$GITHUB_SHA" \
-            --title "Pixel Blur Controller $tag" \
-            --notes-file release-notes.md
+          gh release create "${tag}" pixelblur-controller-*.zip \
+            --target "${GITHUB_SHA}" \
+            --title "Pixel Blur Controller ${tag}" \
+            --notes-file <(cat <<EOF
+          # Pixel Blur Controller ${tag}
+
+          Stable release for Android 16 Pixel UI blur control.
+
+          ## Highlights
+
+          - Standard Zygisk app-process native interception.
+          - Independent SystemUI and Launcher / Recents blur controls.
+          - WebUI separates common controls from advanced blur controls.
+          - WebUI supports automatic system dark-mode detection and manual dark mode.
+          - Native Hook remains OFF by default.
+          - No LSPosed/Xposed and no APK patching.
+
+          Module author: Pew2018
+          EOF
+          )
