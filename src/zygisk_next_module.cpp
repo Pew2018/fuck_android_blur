@@ -1,6 +1,8 @@
 #include "zygisk_next_api.h"
 
 #include <android/log.h>
+#include <fcntl.h>
+#include <cstdarg>
 #include <dlfcn.h>
 #include <link.h>
 #include <strings.h>
@@ -93,21 +95,6 @@ void* hookedSetBlur(
 
 uintptr_t findLibraryBase(const char* soname) {
     uintptr_t result = 0;
-
-    dl_iterate_phdr(
-        [](struct dl_phdr_info* info, size_t, void* data) -> int {
-            if (!info->dlpi_name || !data) return 0;
-
-            const char* slash = strrchr(info->dlpi_name, '/');
-            const char* name = slash ? slash + 1 : info->dlpi_name;
-
-            if (!strcmp(name, static_cast<const char*>(data))) {
-                // data is only used as a lookup string here; the base is
-                // returned through a separate static variable below.
-            }
-            return 0;
-        },
-        nullptr);
 
     struct SearchState {
         const char* wanted;
