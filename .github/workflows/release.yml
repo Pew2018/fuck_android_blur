@@ -2,8 +2,6 @@ name: Release Pixel Blur Controller
 
 on:
   push:
-    tags:
-      - "v*"
     branches:
       - "release/**"
 
@@ -67,6 +65,7 @@ jobs:
           version="$(sed -n 's/^version=//p' module.prop)"
           tag="v${version}"
           gh release delete "release/${tag}" --yes --cleanup-tag || true
+          gh release delete "${tag}" --yes --cleanup-tag || true
           gh release create "${tag}" pixelblur-controller-*.zip \
             --target "${GITHUB_SHA}" \
             --title "Pixel Blur Controller ${tag}" \
