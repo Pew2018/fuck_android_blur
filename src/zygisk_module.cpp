@@ -4,6 +4,8 @@
 #include <unistd.h>
 
 #include <cstdarg>
+#include <cstdint>
+#include <cstdlib>
 #include <strings.h>
 #include <cstring>
 #include <string>
@@ -15,6 +17,8 @@ namespace {
 constexpr const char* kTag = "PixelBlur";
 constexpr const char* kSystemUiProcess = "com.android.systemui";
 constexpr const char* kLauncherProcess = "com.google.android.apps.nexuslauncher";
+constexpr int kDefaultBlurIntensity = 100;
+constexpr int kMaxBlurIntensity = 500;
 
 using NativeSetBackgroundBlurRadiusFn =
         void (*)(JNIEnv*, jclass, jlong, jlong, jint);
@@ -42,6 +46,19 @@ bool propBool(const char* key, bool defaultValue) {
     return defaultValue;
 }
 
+int propInt(const char* key, int defaultValue, int minValue, int maxValue) {
+    char value[PROP_VALUE_MAX]{};
+    if (__system_property_get(key, value) <= 0) return defaultValue;
+
+    char* end = nullptr;
+    const long parsed = strtol(value, &end, 10);
+    if (end == value || *end != '\0') return defaultValue;
+
+    if (parsed < minValue) return minValue;
+    if (parsed > maxValue) return maxValue;
+    return static_cast<int>(parsed);
+}
+
 void logLine(const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -67,6 +84,33 @@ bool blurDisabledForThisProcess() {
     return false;
 }
 
+int blurIntensityForThisProcess() {
+    if (gProcess == kSystemUiProcess) {
+        return propInt(
+                "persist.sys.pixelblur.systemui.intensity",
+                kDefaultBlurIntensity,
+                0,
+                kMaxBlurIntensity);
+    }
+
+    if (gProcess == kLauncherProcess) {
+        return propInt(
+                "persist.sys.pixelblur.launcher.intensity",
+                kDefaultBlurIntensity,
+                0,
+                kMaxBlurIntensity);
+    }
+
+    return kDefaultBlurIntensity;
+}
+
+jint applyBlurIntensity(jint blurRadius, int intensity) {
+    const int64_t scaled =
+            (static_cast<int64_t>(blurRadius) * intensity + 50) / 100;
+
+    return static_cast<jint>(scaled);
+}
+
 void hookedNativeSetBackgroundBlurRadius(
         JNIEnv* env,
         jclass clazz,
@@ -76,13 +120,29 @@ void hookedNativeSetBackgroundBlurRadius(
 
     jint outRadius = blurRadius;
 
-    if (blurRadius > 0 && blurDisabledForThisProcess()) {
-        outRadius = 0;
+    if (blurRadius > 0 && hookEnabled()) {
+        if (blurDisabledForThisProcess()) {
+            outRadius = 0;
 
-        if (propBool("persist.sys.pixelblur.debug", false)) {
-            logLine("%s: nativeSetBackgroundBlurRadius %d -> 0",
-                    gProcess.c_str(),
-                    static_cast<int>(blurRadius));
+            if (propBool("persist.sys.pixelblur.debug", false)) {
+                logLine("%s: nativeSetBackgroundBlurRadius %d -> 0",
+                        gProcess.c_str(),
+                        static_cast<int>(blurRadius));
+            }
+        } else {
+            const int intensity = blurIntensityForThisProcess();
+
+            if (intensity != kDefaultBlurIntensity) {
+                outRadius = applyBlurIntensity(blurRadius, intensity);
+
+                if (propBool("persist.sys.pixelblur.debug", false)) {
+                    logLine("%s: nativeSetBackgroundBlurRadius %d -> %d (intensity=%d%%)",
+                            gProcess.c_str(),
+                            static_cast<int>(blurRadius),
+                            static_cast<int>(outRadius),
+                            intensity);
+                }
+            }
         }
     }
 
