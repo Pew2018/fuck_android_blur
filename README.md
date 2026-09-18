@@ -2,81 +2,47 @@
 
 KernelSU module + ZygiskNext native module for Android 16 Pixel UI.
 
-## Goal
+## Safety-first native architecture
 
-Disable Pixel UI background blur selectively, without LSPosed/Xposed and without modifying SystemUI or Pixel Launcher APKs.
+The native interception is **disabled by default**.
 
-Development target:
+When enabled, the module does not inline-hook `libgui.so`. It injects into only:
+
+- `com.android.systemui`
+- `com.google.android.apps.nexuslauncher`
+
+and installs a PLT hook in `libandroid_runtime.so` for:
+
+`android::SurfaceComposerClient::Transaction::setBackgroundBlurRadius(const sp<SurfaceControl>&, int)`
+
+The hook changes only the radius argument. It does not call `SurfaceControl::getName()`, does not modify SystemUI/Launcher APKs, and does not alter the original transaction scheduling.
+
+## Development target
 
 - Google Pixel 8 Pro
 - Android 16 / SDK 36
 - Build CP1A.260505.005.A1
 - Pixel Launcher 16
 
-## Confirmed reverse-engineering results
-
-Pixel Launcher:
-
-com.android.quickstep.util.BaseDepthControllerImpl.applyDepthAndBlur(SurfaceTransaction, boolean, boolean)
-
-reads mCurrentBlur and passes it to SurfaceTransaction$SurfaceProperties.setBackgroundBlurRadius(int), while the existing early-wakeup and transaction scheduling continue.
-
-SystemUI:
-
-com.android.systemui.statusbar.BlurUtils.applyBlur(ViewRootImpl, int, float)
-
-uses withBackgroundBlurRadius(int), withBackgroundBlurScale(float), and the existing early-wakeup path.
-
-SurfaceFlinger observations on the development device:
+Confirmed SurfaceFlinger values on the development device:
 
 - NotificationShade: backgroundBlurRadius=102
 - NexusLauncherActivity / Recents: backgroundBlurRadius=90
 
-## Implementation
-
-- KernelSU provides the module, configuration, WebUI and diagnostics.
-- ZygiskNext provides native process injection and inlineHook.
-- No LSPosed/Xposed.
-- No APK modification.
-- No global blur change is performed at boot.
-
-zn_modules.txt injects the same arm64 native library only into:
-
-- com.android.systemui
-- com.google.android.apps.nexuslauncher
-
-The native interception target is:
-
-android::SurfaceComposerClient::Transaction::setBackgroundBlurRadius(const sp<SurfaceControl>&, int)
-
-The hook filters SurfaceControl names:
-
-- SystemUI: NotificationShade
-- Launcher: NexusLauncherActivity
-
-Other surfaces are left untouched.
-
 ## Controls
 
-- Global Blur: settings global disable_window_blurs
-- SystemUI Blur: persist.sys.pixelblur.systemui
-- Launcher / Recents Blur: persist.sys.pixelblur.launcher
-- Debug logging: persist.sys.pixelblur.debug
+- Native Hook: opt-in master switch, default OFF; reboot required after changing it.
+- Global Blur: `settings global disable_window_blurs`
+- SystemUI Blur: `persist.sys.pixelblur.systemui`
+- Launcher / Recents Blur: `persist.sys.pixelblur.launcher`
+- Debug: `persist.sys.pixelblur.debug`
 
-Controls default to enabled. After changing a component setting, recreate its relevant surface state to produce a new transaction.
+The component switches matter only when Native Hook is enabled.
 
 ## Build
 
-GitHub Actions builds an arm64 module ZIP with Android NDK and uploads it as a workflow artifact.
+GitHub Actions builds an arm64-v8a KernelSU ZIP with Android NDK.
 
-Local build:
+## Important
 
-    ./build.sh
-
-The build script downloads the current public ZygiskNext API header from the upstream project at build time. The header is not stored in this repository.
-
-## Safety
-
-The native code fails open if the target library, symbols, or inline hook cannot be installed.
-
-This is an experimental, device-specific build. The native symbol and ABI assumptions must be validated on the target Pixel build before treating the module as production-safe.
+This is still an experimental native interception module. A successful build does not prove runtime compatibility; the next validation step is boot-safe on-device testing with the master hook initially OFF.
