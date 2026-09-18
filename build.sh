@@ -45,8 +45,8 @@ rm -rf "$ROOT/lib"
 mkdir -p "$ROOT/lib/arm64-v8a"
 cp "$BUILD/libpixelblur.so" "$ROOT/lib/arm64-v8a/libpixelblur.so"
 
-OUT="$ROOT/../pixelblur-controller-$(date +%Y%m%d-%H%M%S).zip"
-rm -f "$OUT"
+OUT="$ROOT/pixelblur-controller-$(date +%Y%m%d-%H%M%S).zip"
+rm -f "$ROOT"/pixelblur-controller-*.zip "$OUT"
 
 (
   cd "$ROOT"
