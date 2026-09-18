@@ -1,9 +1,17 @@
 #!/system/bin/sh
 printf '%s\n' 'Pixel Blur Controller diagnostics'
-printf 'Native hook (next boot): %s\n' "$(getprop persist.sys.pixelblur.hook)"
-printf 'SystemUI enabled: %s\n' "$(getprop persist.sys.pixelblur.systemui)"
-printf 'Launcher enabled: %s\n' "$(getprop persist.sys.pixelblur.launcher)"
-printf 'Debug logging: %s\n' "$(getprop persist.sys.pixelblur.debug)"
+
+printf 'Persistent config:\n'
+printf 'Native hook: %s\n' "$(ksud module config get hook 2>/dev/null || true)"
+printf 'SystemUI: %s\n' "$(ksud module config get systemui 2>/dev/null || true)"
+printf 'Launcher: %s\n' "$(ksud module config get launcher 2>/dev/null || true)"
+printf 'Debug: %s\n' "$(ksud module config get debug 2>/dev/null || true)"
+
+printf '\nRuntime properties:\n'
+printf 'Native hook property: %s\n' "$(getprop persist.sys.pixelblur.hook)"
+printf 'SystemUI property: %s\n' "$(getprop persist.sys.pixelblur.systemui)"
+printf 'Launcher property: %s\n' "$(getprop persist.sys.pixelblur.launcher)"
+printf 'Debug property: %s\n' "$(getprop persist.sys.pixelblur.debug)"
 printf 'Global disable_window_blurs: %s\n' "$(settings get global disable_window_blurs)"
 
 printf '\nTarget processes:\n'
