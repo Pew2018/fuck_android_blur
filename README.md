@@ -1,82 +1,78 @@
 # Pixel Blur Controller
 
-KernelSU module + standard Zygisk native module for controlling Android 16 Pixel UI Blur.
+KernelSU module + standard Zygisk native module for controlling Android 16 Pixel UI Blur on supported Pixel devices.
 
-## v0.2.0-test2
+## Current release: v0.2.0
 
-The test branch now uses the standard Zygisk app-process module interface. Runtime testing on the development Pixel 8 Pro confirmed direct interception of `android/view/SurfaceControl.nativeSetBackgroundBlurRadius(JJI)V` in both target processes. With the corresponding component switch OFF, observed calls were changed from Launcher/Recents radius `90` to `0`, and SystemUI calls ranging from `35` through `102` to `0`.
+v0.2.0 is the first stable release of the new native interception architecture and the redesigned WebUI.
 
-The `main` branch and v0.1.1 release are unchanged by this test work.
+The native side uses the standard Zygisk app-process module interface and directly hooks:
 
-## v0.1.1
+`android/view/SurfaceControl.nativeSetBackgroundBlurRadius(JJI)V`
 
-v0.1.1 is the first runtime-validated release on the development Pixel 8 Pro.
-
-The WebUI is compatible with KernelSU Next and uses its callback-based `exec()` interface for complete command output and exit-code handling. The four controls can read their real current state and write their settings from the WebUI.
-
-The UI design is intentionally kept in a simple Android 8-era Pixel / Material style and is not dependent on Material 3.
-
-## Controls
-
-- **Native Hook** — opt-in master switch, default OFF. Changing it requires a reboot before the Zygisk interception is active.
-- **Global Blur** — controls Android's global `disable_window_blurs` setting.
-- **SystemUI Blur** — controls Notification Shade / Quick Settings interception when Native Hook is enabled.
-- **Launcher / Recents Blur** — controls Pixel Launcher / Recents interception when Native Hook is enabled.
-- **Debug** — enables optional PixelBlur log output.
-
-The component switches are only used by the native interception when **Native Hook** is enabled.
-
-## Native architecture
-
-The native interception is **disabled by default**.
-
-When enabled, the standard Zygisk module loads only into:
+Only these two target processes are handled:
 
 - `com.android.systemui`
 - `com.google.android.apps.nexuslauncher`
 
-It uses Zygisk's `hookJniNativeMethods()` to replace `android/view/SurfaceControl.nativeSetBackgroundBlurRadius(JJI)V`. The hook changes only the blur-radius argument before forwarding to the original JNI implementation.
+Runtime validation confirmed independent control of SystemUI blur and Launcher / Recents blur on the development device.
 
-It does not inline-hook `libgui.so`, call `SurfaceControl::getName()`, modify the SystemUI or Launcher APKs, or replace transaction scheduling.
+## Features
 
-If the JNI hook cannot be installed, the native library fails open and leaves the original behavior intact.
+### Common controls
 
-## Development / validation target
+The WebUI puts the two most frequently used controls first:
 
-- Google Pixel 8 Pro
-- Android 16 / SDK 36
-- Build `CP1A.260505.005.A1`
-- Pixel Launcher 16
-- KernelSU Next / `ksud 3.3.0` (uapi 2)
-- Standard Zygisk compatibility provided by the installed Zygisk implementation
+- **Native Hook** — master switch for native interception. OFF by default; changing it requires a reboot.
+- **Global Blur** — controls Android's global `disable_window_blurs` setting.
 
-Observed SurfaceFlinger blur radii on the development device:
+### Other Blur controls
 
-- Notification Shade: `backgroundBlurRadius=102`
-- Pixel Launcher / Recents: `backgroundBlurRadius=90`
+Less frequently used controls are grouped into a separate expandable card:
 
-v0.1.1 was runtime-tested on the development device. WebUI state reading and setting changes were verified, including the Native Hook switch surviving a reboot.
+- **SystemUI Blur** — Notification Shade / Quick Settings.
+- **Launcher / Recents Blur** — Pixel Launcher / Recents.
 
-## WebUI
+These component switches are used by the native hook when **Native Hook** is enabled.
 
-The WebUI is implemented for KernelSU Next's bridge:
+### WebUI theme
+
+The WebUI supports both automatic and manual theme control:
+
+- **Auto-follow system theme** detects the phone's current dark/light mode when the WebUI opens.
+- While automatic mode is enabled, the WebUI periodically re-checks the system theme and also re-checks it when returning to the foreground.
+- **Dark mode** can be controlled manually when automatic following is disabled.
+- The selected manual theme preference is stored locally in the WebUI.
+
+The visual design remains a simple Android 8-era Pixel / Material style rather than Material 3.
+
+## WebUI implementation
+
+The WebUI uses KernelSU Next's bridge:
 
 `window.ksu.exec(command, callbackFunctionName)`
 
-The single-argument KernelSU Next `exec()` path only exposes the last stdout line through `ShellUtils.fastCmd()`, so v0.1.1 deliberately uses the callback overload to receive full stdout, stderr, and exit status.
+The callback form is used so the WebUI receives complete stdout, stderr, and exit status instead of only the last stdout line.
 
-This makes state parsing and write verification deterministic while keeping the UI unchanged.
+The WebUI validates property writes by reading the value back after each change.
+
+## Native safety model
+
+- Native interception is OFF by default.
+- No LSPosed/Xposed is required.
+- No APK patching is used.
+- The hook changes only the blur-radius argument before forwarding to the original JNI implementation.
+- The native code targets only SystemUI and Pixel Launcher.
+- If the native hook cannot be installed, the module fails open and preserves the original behavior.
 
 ## Build
 
-GitHub Actions builds an arm64-v8a KernelSU ZIP with Android NDK.
+GitHub Actions builds an arm64-v8a KernelSU ZIP with the Android NDK.
 
-The repository's build workflow is the authoritative way to reproduce the module package.
+The module author is **Pew2018**.
 
-## Safety notes
+## Compatibility
 
-- Native Hook defaults to OFF.
-- No LSPosed/Xposed is required.
-- No APK patching is used.
-- The native interception targets only the two Pixel UI processes above.
-- The module is still device/build-specific experimental software outside the validated development environment.
+The project targets Android 16 Pixel UI and is intended for supported Pixel devices using a compatible Zygisk implementation and KernelSU.
+
+Because the native hook depends on Android framework implementation details, compatibility outside the validated environment is not guaranteed.
