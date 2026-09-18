@@ -24,6 +24,9 @@ curl -fsSL \
   https://raw.githubusercontent.com/5ec1cff/ZygiskNextModuleSample/3dd921bef650086685eac64c75bd833a1c766ad3/native/zygisk_next_api.h \
   -o "$API_HEADER"
 
+# The public sample header uses size_t but does not include <stddef.h>.
+grep -q '<stddef.h>' "$API_HEADER" || sed -i '2i #include <stddef.h>' "$API_HEADER"
+
 BUILD="$ROOT/.build"
 rm -rf "$BUILD"
 
