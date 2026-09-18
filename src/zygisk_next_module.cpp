@@ -3,6 +3,7 @@
 #include <android/log.h>
 #include <fcntl.h>
 #include <cstdarg>
+#include <cstdint>
 #include <dlfcn.h>
 #include <link.h>
 #include <strings.h>
