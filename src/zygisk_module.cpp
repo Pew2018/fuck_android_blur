@@ -5,6 +5,7 @@
 
 #include <cstdarg>
 #include <cstdint>
+#include <cstdlib>
 #include <strings.h>
 #include <cstring>
 #include <string>
