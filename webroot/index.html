@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Pixel Blur Controller</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+<div class="title">Pixel Blur Controller</div>
+<div class="subtitle">Android 16 · Pixel UI</div>
+</header>
+<main>
+<section class="card">
+<div class="section-title">Blur 控制</div>
+<div class="row"><div><div class="label">全局 Blur</div><div class="desc">Android 全局窗口 Blur</div></div><label class="switch"><input id="global" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+<div class="row"><div><div class="label">SystemUI Blur</div><div class="desc">Notification Shade / Quick Settings</div></div><label class="switch"><input id="systemui" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+<div class="row"><div><div class="label">Launcher / Recents Blur</div><div class="desc">Pixel Launcher / Recents</div></div><label class="switch"><input id="launcher" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+</section>
+<section class="card"><div class="section-title">当前状态</div><pre id="status" class="status">读取中…</pre></section>
+<section class="card"><div class="section-title">诊断</div><button id="refresh" class="button">刷新状态</button><pre id="diag" class="status">读取中…</pre></section>
+<div id="toast" class="toast"></div>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
