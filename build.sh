@@ -17,15 +17,12 @@ if [[ -z "$ANDROID_NDK_HOME" ||
   exit 1
 fi
 
-API_HEADER="$ROOT/third_party/zygisk_next_api.h"
+API_HEADER="$ROOT/third_party/zygisk.hpp"
 mkdir -p "$ROOT/third_party"
 
 curl -fsSL \
-  https://raw.githubusercontent.com/5ec1cff/ZygiskNextModuleSample/3dd921bef650086685eac64c75bd833a1c766ad3/native/zygisk_next_api.h \
+  https://raw.githubusercontent.com/topjohnwu/zygisk-module-sample/master/module/jni/zygisk.hpp \
   -o "$API_HEADER"
-
-# The public sample header uses size_t but does not include <stddef.h>.
-grep -q '<stddef.h>' "$API_HEADER" || sed -i '2i #include <stddef.h>' "$API_HEADER"
 
 BUILD="$ROOT/.build"
 rm -rf "$BUILD"
@@ -39,24 +36,25 @@ cmake -S "$ROOT" -B "$BUILD" \
 
 cmake --build "$BUILD" --parallel
 
-chmod 0755 "$ROOT/service.sh" "$ROOT/action.sh"
+chmod +x "$ROOT/service.sh" "$ROOT/action.sh"
 
-rm -rf "$ROOT/lib"
-mkdir -p "$ROOT/lib/arm64-v8a"
-cp "$BUILD/libpixelblur.so" "$ROOT/lib/arm64-v8a/libpixelblur.so"
+rm -rf "$ROOT/lib" "$ROOT/zygisk"
+mkdir -p "$ROOT/zygisk"
 
-OUT="$ROOT/pixelblur-controller-$(date +%Y%m%d-%H%M%S).zip"
-rm -f "$ROOT"/pixelblur-controller-*.zip "$OUT"
+cp "$BUILD/libpixelblur.so" "$ROOT/zygisk/arm64-v8a.so"
+
+OUT="$ROOT/pixelblur-controller-zygisk-test-$(date +%Y%m%d-%H%M%S).zip"
+rm -f "$ROOT"/pixelblur-controller-zygisk-test-*.zip "$OUT"
 
 (
   cd "$ROOT"
   zip -r -9 "$OUT" \
     module.prop \
-    zn_modules.txt \
     service.sh \
     action.sh \
     webroot \
-    lib >/dev/null
+    zygisk \
+    >/dev/null
 )
 
 echo "Built: $OUT"
