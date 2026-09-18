@@ -1,0 +1,2 @@
+name=com.android.systemui lib/arm64-v8a/libpixelblur.so
+name=com.google.android.apps.nexuslauncher lib/arm64-v8a/libpixelblur.so
