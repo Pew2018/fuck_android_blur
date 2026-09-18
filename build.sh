@@ -43,8 +43,9 @@ mkdir -p "$ROOT/zygisk"
 
 cp "$BUILD/libpixelblur.so" "$ROOT/zygisk/arm64-v8a.so"
 
-OUT="$ROOT/pixelblur-controller-zygisk-test-$(date +%Y%m%d-%H%M%S).zip"
-rm -f "$ROOT"/pixelblur-controller-zygisk-test-*.zip "$OUT"
+VERSION="$(sed -n "s/^version=//p" "$ROOT/module.prop")"
+OUT="$ROOT/pixelblur-controller-${VERSION}-$(date +%Y%m%d-%H%M%S).zip"
+rm -f "$ROOT"/pixelblur-controller-*.zip "$OUT"
 
 (
   cd "$ROOT"
