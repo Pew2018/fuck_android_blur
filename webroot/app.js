@@ -131,6 +131,7 @@ async function refreshStatus(){
  return g;
 }
 function renderPreview(mode){
+ if(mode==='dark'||mode==='light'){document.documentElement.dataset.theme=mode;setSwitch('themeAuto',false,false);setSwitch('themeDark',mode==='dark',false);$('themeState').textContent='模拟主题预览'}
  if(mode==='loading'){loadingProgress.open();setProgress(false);$('main').hidden=true;$('loadingShell').hidden=false;return}
  if(mode==='error'){loadingProgress.close();setProgress(false);$('main').hidden=true;$('loadingShell').hidden=false;$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent='请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;return}
  const globalOff=mode==='global-off',busy=mode==='busy';
