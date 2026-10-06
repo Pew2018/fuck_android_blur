@@ -14,6 +14,8 @@ document.querySelectorAll('.mdc-switch').forEach(el=>{const control=new MDCSwitc
 document.querySelectorAll('.mdc-button').forEach(el=>new MDCButton(el));
 document.querySelectorAll('[data-mdc-ripple]').forEach(el=>new MDCRipple(el));
 const progress=new MDCLinearProgress($('operationProgress'));
+const loadingProgress=new MDCLinearProgress($('loadingProgress'));
+loadingProgress.open();
 const snackbar=new MDCSnackbar($('snackbar'));
 const dialog=new MDCDialog($('restoreDialog'));
 window.PixelBlurMDC={MDCSwitch,MDCRipple,MDCLinearProgress,MDCButton,MDCDialog,MDCSnackbar};
@@ -91,6 +93,7 @@ function setBusy(value){
 }
 function updateChildren(){
  const sys=childVisual(systemuiSaved,globalAllowed,hookSaved),launch=childVisual(launcherSaved,globalAllowed,hookSaved);
+ $('systemui').dataset.locked=sys.disabled?'1':'0';$('launcher').dataset.locked=launch.disabled?'1':'0';
  setSwitch('systemui',sys.checked,sys.disabled||writeBusy);setSwitch('launcher',launch.checked,launch.disabled||writeBusy);
  const reason=globalAllowed!==true?'需要先开启全局模糊':!hookSaved?'需要先开启 Native Hook':'已保存';
  $('childSummary').textContent=reason;
@@ -101,7 +104,7 @@ function renderGlobal(g){
  globalAllowed=g.allowed;
  const input=$('global'),known=g.allowed!==null;
  setSwitch('global',known&&g.allowed,!known||writeBusy);
- input.dataset.unknown=known?'0':'1';
+ input.dataset.unknown=known?'0':'1';input.dataset.locked=known?'0':'1';
  $('globalState').textContent=g.allowed===null?'无法读取系统状态':g.allowed?'当前已允许':'当前已禁止';
  $('globalMeta').textContent='设置：'+(g.explicit===null?'系统默认':g.explicit)+' · '+(g.supported===null?'能力未知':g.supported?'设备支持':'设备不支持');
  $('globalSummary').textContent=g.allowed===false?'全局关闭时，组件模糊不可用':'允许 Android 使用窗口模糊';
@@ -183,13 +186,13 @@ $('restoreButton').addEventListener('click',()=>dialog.open());
 $('confirmRestore').addEventListener('click',async()=>{dialog.close();if(writeBusy)return;setBusy(true);setProgress(true,'正在恢复系统设置…');try{const result=await sh('/system/bin/sh /data/adb/modules/pixelblur-controller/global_blur.sh restore');try{await refresh(true)}catch(_){$('runtimeSummary').textContent='已恢复，状态读取失败'}toast(result||'已恢复系统默认模糊设置')}catch(e){$('runtimeSummary').textContent='恢复失败';toast('恢复失败')}finally{setProgress(false);setBusy(false)}});
 $('retryLoad').addEventListener('click',()=>initialize());
 function revealMain(){
- const shell=$('loadingShell');$('main').hidden=false;$('main').classList.add('ready');shell.classList.add('loading-hidden');setTimeout(()=>shell.hidden=true,180);
+ loadingProgress.close();const shell=$('loadingShell');$('main').hidden=false;$('main').classList.add('ready');shell.classList.add('loading-hidden');setTimeout(()=>shell.hidden=true,180);
 }
 async function initialize(){
  if(preview){setProgress(false);$('main').hidden=false;$('main').classList.add('ready');$('loadingShell').hidden=true;renderPreview(preview);return}
  setProgress(true,'正在读取系统状态…');$('loadingShell').hidden=false;$('loadingError').hidden=true;$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='正在连接 KernelSU Next…';
  try{await refreshStatus();revealMain();$('loadingError').hidden=true;setProgress(false);$('runtimeSummary').textContent=$('runtimeSummary').textContent||'状态已更新'}
- catch(e){$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false)}
+ catch(e){$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false);loadingProgress.close()}
 }
 function init(){
  applyInitialTheme();const p=readTheme();if(p.follow)syncSystemTheme();else $('themeState').textContent='手动使用已保存的主题';
