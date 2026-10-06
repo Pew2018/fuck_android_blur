@@ -23,11 +23,27 @@ try{
   if(mode==='loading'||mode==='error'){
    await page.waitForSelector('#loadingShell:not([hidden])');
    if(mode==='error')assert.equal(await page.locator('#retryLoad').isVisible(),true);
-   else assert.equal(await page.locator('#main').isVisible(),false);
+   else {
+    await page.waitForFunction(()=>document.querySelector('#loadingProgress').classList.contains('mdc-linear-progress--animation-ready'));
+    assert.equal(await page.locator('#main').isVisible(),false);
+    assert.equal(await page.locator('#loadingSubtext').isVisible(),false);
+    assert.equal(await page.locator('#loadingProgress.mdc-linear-progress--indeterminate').count(),1);
+    assert.equal(await page.locator('#loadingProgress .mdc-linear-progress__bar').count(),2);
+    assert.equal(await page.evaluate(()=>!!window.PixelBlurMDC?.MDCLinearProgress),true);
+   }
   }else{
    await page.waitForSelector('#main.ready');
    assert.equal(await page.evaluate(()=>!!window.PixelBlurMDC?.MDCSwitch),true);
    assert.ok(await page.locator('.mdc-button').count()>0);
+   assert.equal(await page.locator('.topbar .subtitle').count(),0);
+   assert.equal(await page.locator('#hookState').innerText(),'');
+   assert.equal(await page.locator('#globalState').innerText(),'');
+   assert.equal(await page.locator('#systemuiState').innerText(),'');
+   assert.equal(await page.locator('#launcherState').innerText(),'');
+   if(mode==='light'){
+    const alignment=await page.evaluate(()=>({label:document.querySelector('.restore-card .status-overview .label').getBoundingClientRect().left,button:document.getElementById('restoreButton').getBoundingClientRect().left}));
+    assert.ok(Math.abs(alignment.label-alignment.button)<1,JSON.stringify(alignment));
+   }
    assert.equal(await page.evaluate(()=>!!window.PixelBlurMDC?.MDCDialog),true);
    assert.equal(await page.locator('html').getAttribute('data-theme'),mode==='dark'?'dark':'light');
    if(mode==='global-off'){
