@@ -86,8 +86,8 @@ jobs:
           path: preview-artifacts/*.png
           if-no-files-found: error
 
-      - name: Publish direct install download on fix branch
-        if: startsWith(github.ref, 'refs/heads/fix/') || github.ref == 'refs/heads/main'
+      - name: Publish direct install download on feature, fix, and main branches
+        if: startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/fix/') || github.ref == 'refs/heads/main'
         shell: bash
         run: |
           set -euo pipefail
