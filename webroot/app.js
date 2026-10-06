@@ -129,15 +129,17 @@ async function refreshStatus(){
  return g;
 }
 function renderPreview(mode){
- const globalOff=mode==='global-off',error=mode==='error',busy=mode==='busy';
+ if(mode==='loading'){loadingProgress.open();setProgress(false);$('main').hidden=true;$('loadingShell').hidden=false;return}
+ if(mode==='error'){loadingProgress.close();setProgress(false);$('main').hidden=true;$('loadingShell').hidden=false;$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent='请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;return}
+ const globalOff=mode==='global-off',busy=mode==='busy';
+ $('loadingShell').hidden=true;$('main').hidden=false;$('main').classList.add('ready');
  hookSaved=true;globalAllowed=globalOff?false:true;systemuiSaved=true;launcherSaved=true;
  setSwitch('hook',true,false);renderGlobal({explicit:globalOff?'1':'0',allowed:!globalOff,supported:true});updateChildren();
- $('systemuiRuntime').textContent='Hook 已安装';$('launcherRuntime').textContent='等待目标进程重启';$('runtimeSummary').textContent=globalOff?'系统模糊已关闭':busy?'正在应用设置…':error?'无法读取模块状态':'Native Hook 已读取';
- $('runtimeDetails').textContent='模拟数据，仅用于界面预览';$('diagnosticsSummary').textContent='SystemUI Hook 已安装 · Launcher 等待确认';$('status').textContent='模拟预览状态\\nPID 1234 · Hook 安装状态来自当前进程证据';
- $('diag').textContent='模拟诊断：PID 1234 · process start ticks 5678 · module mapping confirmed · Hook installed';
- if(mode==='dialog')dialog.open();if(mode==='snackbar')toast('设置已保存');if(mode==='diagnostics')$('diagnosticsDetails').open=true;
+ $('systemuiRuntime').textContent='Hook 已安装';$('launcherRuntime').textContent='等待目标进程重启';$('runtimeSummary').textContent=globalOff?'系统模糊已关闭':busy?'正在应用设置…':'Native Hook 已读取';
+ $('runtimeDetails').textContent='模拟数据，仅用于界面预览';$('diagnosticsSummary').textContent='SystemUI Hook 已安装 · Launcher 等待确认';$('status').textContent='模拟预览状态\nPID 1234 · Hook 状态由模拟数据提供';
+ $('diag').textContent='模拟诊断：PID 1234 · 进程启动信息已关联 · Hook installed';
+ if(mode==='dialog')dialog.open();if(mode==='snackbar')toast('设置已保存');if(mode==='diagnostics'){$('diagnosticsDetails').open=true;$('viewDetails').setAttribute('aria-expanded','true')}
  if(busy){setProgress(true,'正在应用设置…');setTimeout(()=>setProgress(false),4500)}
- if(error){$('loadingError').hidden=false;$('loadingText').textContent='无法读取模块状态';}
 }
 async function refreshDiagnostics(){
  if(preview){renderPreview(preview);return}
@@ -189,7 +191,7 @@ function revealMain(){
  loadingProgress.close();const shell=$('loadingShell');$('main').hidden=false;$('main').classList.add('ready');shell.classList.add('loading-hidden');setTimeout(()=>shell.hidden=true,180);
 }
 async function initialize(){
- if(preview){setProgress(false);$('main').hidden=false;$('main').classList.add('ready');$('loadingShell').hidden=true;renderPreview(preview);return}
+ if(preview){renderPreview(preview);return}
  setProgress(true,'正在读取系统状态…');$('loadingShell').hidden=false;$('loadingError').hidden=true;$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='正在连接 KernelSU Next…';
  try{await refreshStatus();revealMain();$('loadingError').hidden=true;setProgress(false);$('runtimeSummary').textContent=$('runtimeSummary').textContent||'状态已更新'}
  catch(e){$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false);loadingProgress.close()}
