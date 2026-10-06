@@ -196,7 +196,7 @@ function revealMain(){
 }
 async function initialize(){
  if(preview){renderPreview(preview);return}
- setProgress(true,'正在读取系统状态…');$('loadingShell').hidden=false;$('loadingError').hidden=true;$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='正在连接 KernelSU Next…';
+ $('loadingShell').hidden=false;$('loadingError').hidden=true;$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='正在连接 KernelSU Next…';
  try{await refreshStatus();revealMain();$('loadingError').hidden=true;setProgress(false);$('runtimeSummary').textContent=$('runtimeSummary').textContent||'状态已更新'}
  catch(e){$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false);loadingProgress.close()}
 }
