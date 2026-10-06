@@ -24,6 +24,7 @@ rm -f "$ROOT"/pixelblur-controller-*.zip
 unzip -l "$OUT" | grep -q 'uninstall.sh'; unzip -l "$OUT" | grep -q 'global_blur.sh'; unzip -l "$OUT" | grep -q 'action.sh'
 unzip -l "$OUT" | grep -q 'webroot/vendor/mdc.css'
 unzip -l "$OUT" | grep -q 'webroot/vendor/mdc.js'
+unzip -l "$OUT" | grep -q 'webroot/vendor/MDC-LICENSE.txt'
 zipinfo -l "$OUT" | awk '$NF == "service.sh" || $NF == "action.sh" || $NF == "uninstall.sh" || $NF == "global_blur.sh" {
   found++;
   if (substr($1,4,1) != "x" || substr($1,7,1) != "x" || substr($1,10,1) != "x") bad=1;
