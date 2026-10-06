@@ -16,7 +16,7 @@ function execRoot(cmd,timeoutMs=15000){
 }
 const sh=async cmd=>(await execRoot(cmd)).trim();
 if(preview)window.PixelBlurExec=execRoot;
-async function writeProp(key,on){const expected=on?'1':'0';await sh('setprop '+key+' '+expected);const actual=await sh('getprop '+key);if(actual!==expected)throw new Error('写入读回不匹配：'+key)}
+async function writeProp(key,on){const expected=on?'1':'0';await sh('/system/bin/setprop '+key+' '+expected);const actual=await sh('/system/bin/getprop '+key);if(actual!==expected)throw new Error('写入读回不匹配：'+key)}
 function parsePairs(raw){return Object.fromEntries(raw.split(/\r?\n/).filter(Boolean).map(line=>{const i=line.indexOf('=');return i<0?[line,'']:[line.slice(0,i),line.slice(i+1)]}))}
 function parseWmBlur(text){
  const s=String(text||'');
@@ -64,7 +64,7 @@ function applyInitialTheme(){
  $('themeAuto').checked=stored.follow;$('themeDark').disabled=stored.follow;
 }
 async function detectSystemTheme(){
- const raw=await sh('dumpsys uimode 2>/dev/null | grep -m 1 "mComputedNightMode=" || true');
+ const raw=await sh('/system/bin/dumpsys uimode 2>/dev/null | /system/bin/grep -m 1 "mComputedNightMode=" || true');
  const m=raw.match(/mComputedNightMode=(true|false)/i);
  if(m)return {dark:m[1].toLowerCase()==='true',source:'系统 UiModeManager'};
  const media=window.matchMedia?.('(prefers-color-scheme: dark)');
@@ -91,7 +91,7 @@ function setBusy(value){
 async function refreshStatus(){
  if(preview){renderPreview();return}
  const seq=++refreshSeq;
- const command='global=$(settings get global disable_window_blurs 2>/dev/null); [ -n "$global" ] || global=__QUERY_FAILED__; printf "hook=%s\\nglobal=%s\\nsystemui=%s\\nlauncher=%s\\n" "$(getprop persist.sys.pixelblur.hook)" "$global" "$(getprop persist.sys.pixelblur.systemui)" "$(getprop persist.sys.pixelblur.launcher)"; echo "__WM_BEGIN__"; wm disable-blur 2>&1; echo "__WM_END__"; /data/adb/modules/pixelblur-controller/action.sh status';
+ const command='global=$(/system/bin/settings get global disable_window_blurs 2>/dev/null); [ -n "$global" ] || global=__QUERY_FAILED__; printf "hook=%s\\nglobal=%s\\nsystemui=%s\\nlauncher=%s\\n" "$(/system/bin/getprop persist.sys.pixelblur.hook)" "$global" "$(/system/bin/getprop persist.sys.pixelblur.systemui)" "$(/system/bin/getprop persist.sys.pixelblur.launcher)"; echo "__WM_BEGIN__"; /system/bin/wm disable-blur 2>&1; echo "__WM_END__"; /data/adb/modules/pixelblur-controller/action.sh status';
  const raw=await sh(command);if(seq!==refreshSeq)return;
  const globalRaw=(raw.match(/^global=(.*)$/m)||[])[1]||'';
  const wm=(raw.match(/__WM_BEGIN__\r?\n([\s\S]*?)\r?\n__WM_END__/m)||[])[1]||'';
