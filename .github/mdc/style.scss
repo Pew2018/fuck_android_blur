@@ -1,0 +1,12 @@
+@use "@material/switch";
+@use "@material/ripple";
+@use "@material/linear-progress";
+@use "@material/button/styles";
+@use "@material/dialog";
+@use "@material/snackbar";
+
+@include switch.core-styles;
+@include ripple.core-styles;
+@include linear-progress.core-styles;
+@include dialog.core-styles;
+@include snackbar.core-styles;
