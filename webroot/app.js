@@ -99,15 +99,15 @@ function updateChildren(){
  setSwitch('systemui',sys.checked,sys.disabled||writeBusy);setSwitch('launcher',launch.checked,launch.disabled||writeBusy);
  const reason=globalAllowed!==true?'需要先开启全局模糊':!hookSaved?'需要先开启 Native Hook':'已保存';
  $('childSummary').textContent=reason;
- $('systemuiState').textContent=globalAllowed!==true?'全局模糊未开启':!hookSaved?'Native Hook 未启用':systemuiSaved?'已开启':'已关闭';
- $('launcherState').textContent=globalAllowed!==true?'全局模糊未开启':!hookSaved?'Native Hook 未启用':launcherSaved?'已开启':'已关闭';
+ $('systemuiState').textContent='';
+ $('launcherState').textContent='';
 }
 function renderGlobal(g){
  globalAllowed=g.allowed;
  const input=$('global'),known=g.allowed!==null;
  setSwitch('global',known&&g.allowed,!known||writeBusy);
  input.dataset.unknown=known?'0':'1';input.dataset.locked=known?'0':'1';
- $('globalState').textContent=g.allowed===null?'无法读取系统状态':g.allowed?'当前已允许':'当前已禁止';
+ $('globalState').textContent='';
  $('globalMeta').textContent='设置：'+(g.explicit===null?'系统默认':g.explicit)+' · '+(g.supported===null?'能力未知':g.supported?'设备支持':'设备不支持');
  $('globalSummary').textContent=g.allowed===false?'全局关闭时，组件模糊不可用':'允许 Android 使用窗口模糊';
 }
@@ -120,7 +120,7 @@ async function refreshStatus(){
  const cfg=parsePairs(raw.split('__WM_BEGIN__')[0]),g=parseGlobal(globalRaw,wm),targets=parsePairs(raw.split('__WM_END__').pop());
  hookSaved=cfg.hook==='1';systemuiSaved=cfg.systemui!=='0';launcherSaved=cfg.launcher!=='0';
  setSwitch('hook',hookSaved,writeBusy);renderGlobal(g);updateChildren();
- const hook=hookSaved?'已启用':'已停用';$('hookState').textContent=hookSaved?'已开启':'已停用';
+ const hook=hookSaved?'已启用':'已停用';$('hookState').textContent='';
  $('hookMeta').textContent=hookSaved?'运行状态按目标进程分别显示':'已保存的子项设置仍会保留';
  const sysRun=targetState(hookSaved,targets['systemui.pid'],targets['systemui.hook']),launchRun=targetState(hookSaved,targets['launcher.pid'],targets['launcher.hook']);
  $('systemuiRuntime').textContent=sysRun;$('launcherRuntime').textContent=launchRun;
@@ -195,7 +195,7 @@ function revealMain(){
 }
 async function initialize(){
  if(preview){renderPreview(preview);return}
- $('loadingShell').hidden=false;$('loadingError').hidden=true;$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='正在连接 KernelSU Next…';
+ $('loadingShell').hidden=false;$('loadingError').hidden=true;loadingProgress.open();$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='';
  try{await refreshStatus();revealMain();$('loadingError').hidden=true;setProgress(false);$('runtimeSummary').textContent=$('runtimeSummary').textContent||'状态已更新'}
  catch(e){$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false);loadingProgress.close()}
 }
