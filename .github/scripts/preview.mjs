@@ -78,7 +78,7 @@ try{
  assert.match(asyncChecks.out.message,/底层命令可能仍在执行/);
  assert.equal(asyncChecks.removed,true);assert.equal(asyncChecks.sync,true);assert.equal(asyncChecks.syncRemoved,true);
  const themePage=await browser.newPage({viewport:{width:412,height:900}});
- await themePage.addInitScript(()=>{localStorage.setItem('pixelBlur.theme.followSystem','0');localStorage.setItem('pixelBlur.theme.manualDark','1');window.ksu={exec:()=>{}}});
+ await themePage.addInitScript(()=>{localStorage.setItem('pixelBlur.theme.followSystem','0');localStorage.setItem('pixelBlur.theme.manualDark','1');window.ksu={exec:(cmd,name)=>{let out='';if(cmd.includes('dumpsys uimode'))out='mComputedNightMode=false';else if(cmd.includes('__WM_BEGIN__'))out='hook=1\\nglobal=0\\nsystemui=1\\nlauncher=0\\n__WM_BEGIN__\\nBlur supported on device: true\\nBlur enabled: true\\n__WM_END__\\nsystemui.pid=1234\\nsystemui.hook=installed\\nlauncher.pid=5678\\nlauncher.hook=not_installed';setTimeout(()=>window[name](0,out,''),0)}}});
  await themePage.goto('http://127.0.0.1:4173/');
  await themePage.waitForSelector('#main.ready');
  assert.equal(await themePage.locator('html').getAttribute('data-theme'),'dark');
