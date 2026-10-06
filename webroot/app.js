@@ -91,7 +91,7 @@ function setBusy(value){
 async function refreshStatus(){
  if(preview){renderPreview();return}
  const seq=++refreshSeq;
- const command='printf "hook=%s\\nglobal=%s\\nsystemui=%s\\nlauncher=%s\\n" "$(getprop persist.sys.pixelblur.hook)" "$(settings get global disable_window_blurs 2>/dev/null || echo __QUERY_FAILED__)" "$(getprop persist.sys.pixelblur.systemui)" "$(getprop persist.sys.pixelblur.launcher)"; echo "__WM_BEGIN__"; wm disable-blur 2>&1; echo "__WM_END__"; /data/adb/modules/pixelblur-controller/action.sh status';
+ const command='global=$(settings get global disable_window_blurs 2>/dev/null); [ -n "$global" ] || global=__QUERY_FAILED__; printf "hook=%s\\nglobal=%s\\nsystemui=%s\\nlauncher=%s\\n" "$(getprop persist.sys.pixelblur.hook)" "$global" "$(getprop persist.sys.pixelblur.systemui)" "$(getprop persist.sys.pixelblur.launcher)"; echo "__WM_BEGIN__"; wm disable-blur 2>&1; echo "__WM_END__"; /data/adb/modules/pixelblur-controller/action.sh status';
  const raw=await sh(command);if(seq!==refreshSeq)return;
  const globalRaw=(raw.match(/^global=(.*)$/m)||[])[1]||'';
  const wm=(raw.match(/__WM_BEGIN__\r?\n([\s\S]*?)\r?\n__WM_END__/m)||[])[1]||'';

@@ -29,7 +29,8 @@ for process in com.android.systemui com.google.android.apps.nexuslauncher; do
   if [ -n "$pid" ]; then
     printf '%s pid=%s start_ticks=%s hook=%s\n' "$process" "$pid" "$ticks" "$(current_hook_state "$process" "$pid" "$ticks")"
     if [ -r "/proc/$pid/maps" ]; then
-      grep -E 'zygisk/arm64-v8a\.so|pixelblur|zygisk' "/proc/$pid/maps" 2>/dev/null | head -n 3 || echo '  no identifiable mapping (not conclusive)'
+      maps=$(grep -E 'zygisk/arm64-v8a\.so|pixelblur|zygisk' "/proc/$pid/maps" 2>/dev/null | head -n 3)
+      if [ -n "$maps" ]; then printf '  candidate mappings (supporting evidence only):\n%s\n' "$maps"; else echo '  no identifiable mapping (not conclusive)'; fi
     else echo '  maps=unavailable'; fi
   else printf '%s not_running\n' "$process"; fi
 done
