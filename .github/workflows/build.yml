@@ -3,11 +3,13 @@ name: Build Pixel Blur Controller
 on:
   push:
     branches: [main, "ci/**", "fix/**"]
+    paths-ignore:
+      - pixelblur-controller-install.zip
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify-build-preview:
@@ -73,7 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pixelblur-controller-module
-          path: "pixelblur-controller-*.zip"
+          path: pixelblur-controller-install.zip
           if-no-files-found: error
 
       - name: Upload WebUI previews
@@ -82,3 +84,17 @@ jobs:
           name: pixelblur-controller-webui-previews
           path: preview-artifacts/*.png
           if-no-files-found: error
+
+      - name: Publish direct install download on fix branch
+        if: startsWith(github.ref, 'refs/heads/fix/')
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f pixelblur-controller-install.zip
+          if ! git diff --cached --quiet; then
+            git commit -m "build: update direct install package"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+          printf '\n[Download Pixel Blur Controller installer](https://github.com/%s/raw/refs/heads/%s/pixelblur-controller-install.zip)\n' "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" >> "$GITHUB_STEP_SUMMARY"
