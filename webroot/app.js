@@ -10,7 +10,7 @@ let execSeq=0,writeBusy=false,refreshSeq=0,refreshAgain=false,refreshPromise=nul
 const preview=new URLSearchParams(location.search).get('preview');
 const mdcSwitches=new Map();
 document.querySelectorAll('.mdc-switch').forEach(el=>{const control=new MDCSwitch(el);mdcSwitches.set(el.querySelector('input').id,control)});
-document.querySelectorAll('.mdc-ripple-surface').forEach(el=>new MDCRipple(el));
+document.querySelectorAll('.mdc-button').forEach(el=>new MDCRipple(el));
 const progress=new MDCLinearProgress($('operationProgress'));
 const loadingProgress=new MDCLinearProgress($('loadingProgress'));
 loadingProgress.open();
@@ -114,7 +114,7 @@ function renderGlobal(g){
 async function refreshStatus(){
  if(preview){renderPreview(preview);return}
  const seq=++refreshSeq;
- const command='global=$(/system/bin/settings get global disable_window_blurs 2>/dev/null); [ -n "$global" ] || global=__QUERY_FAILED__; printf "hook=%s\\nglobal=%s\\nsystemui=%s\\nlauncher=%s\\n" "$(/system/bin/getprop persist.sys.pixelblur.hook)" "$global" "$(/system/bin/getprop persist.sys.pixelblur.systemui)" "$(/system/bin/getprop persist.sys.pixelblur.launcher)"; echo "__WM_BEGIN__"; /system/bin/wm disable-blur 2>&1; echo "__WM_END__"; /system/bin/sh /data/adb/modules/pixelblur-controller/action.sh status';
+ const command='global=$(/system/bin/settings get global disable_window_blurs 2>/dev/null); [ -n "$global" ] || global=__QUERY_FAILED__; printf "hook=%s\nglobal=%s\nsystemui=%s\nlauncher=%s\n" "$(/system/bin/getprop persist.sys.pixelblur.hook)" "$global" "$(/system/bin/getprop persist.sys.pixelblur.systemui)" "$(/system/bin/getprop persist.sys.pixelblur.launcher)"; echo "__WM_BEGIN__"; /system/bin/wm disable-blur 2>&1; echo "__WM_END__"; /system/bin/sh /data/adb/modules/pixelblur-controller/action.sh status';
  const raw=await sh(command);if(seq!==refreshSeq)return;
  const globalRaw=(raw.match(/^global=(.*)$/m)||[])[1]||'__QUERY_FAILED__',wm=(raw.match(/__WM_BEGIN__\r?\n([\s\S]*?)\r?\n__WM_END__/m)||[])[1]||'';
  const cfg=parsePairs(raw.split('__WM_BEGIN__')[0]),g=parseGlobal(globalRaw,wm),targets=parsePairs(raw.split('__WM_END__').pop());
@@ -125,9 +125,9 @@ async function refreshStatus(){
  const sysRun=targetState(hookSaved,targets['systemui.pid'],targets['systemui.hook']),launchRun=targetState(hookSaved,targets['launcher.pid'],targets['launcher.hook']);
  $('systemuiRuntime').textContent=sysRun;$('launcherRuntime').textContent=launchRun;
  $('runtimeSummary').textContent=g.allowed===false?'系统模糊已关闭':!hookSaved?'Native Hook 已停用':sysRun==='目标进程未运行'&&launchRun==='目标进程未运行'?'目标进程未运行':sysRun==='Hook 已安装'||launchRun==='Hook 已安装'?'Native Hook 已安装':sysRun==='等待目标进程重启'||launchRun==='等待目标进程重启'?'等待目标进程重启':'运行状态未确认';
- $('runtimeDetails').textContent='SystemUI：'+sysRun+'\\nLauncher：'+launchRun+'\\n全局窗口模糊：'+(g.allowed===null?'无法确认':g.allowed?'允许':'禁止')+'；这不代表界面当前正在绘制模糊。';
+ $('runtimeDetails').textContent='SystemUI：'+sysRun+'\nLauncher：'+launchRun+'\n全局窗口模糊：'+(g.allowed===null?'无法确认':g.allowed?'允许':'禁止')+'；这不代表界面当前正在绘制模糊。';
  $('diagnosticsSummary').textContent='SystemUI '+sysRun+' · Launcher '+launchRun;
- $('status').textContent='全局模糊：'+(g.allowed===null?'无法读取':g.allowed?'已允许':'已关闭')+'\\nNative Hook：'+hook+'\\nSystemUI：'+sysRun+'\\nLauncher：'+launchRun+'\\n\\nHook 仅控制目标进程通过指定接口提交的背景模糊。';
+ $('status').textContent='全局模糊：'+(g.allowed===null?'无法读取':g.allowed?'已允许':'已关闭')+'\nNative Hook：'+hook+'\nSystemUI：'+sysRun+'\nLauncher：'+launchRun+'\n\nHook 仅控制目标进程通过指定接口提交的背景模糊。';
  return g;
 }
 function renderPreview(mode){
@@ -184,7 +184,7 @@ document.querySelectorAll('.write-control').forEach(input=>input.addEventListene
  if((input.id==='systemui'||input.id==='launcher')&&(globalAllowed!==true||!hookSaved)){updateChildren();return}
  writeAction(input.id,input.checked);
 }));
-$('blurMoreToggle').addEventListener('click',()=>{const c=$('blurMoreContent'),open=!c.hidden;c.hidden=!open;$('blurMoreToggle').setAttribute('aria-expanded',String(open));$('blurMoreIcon').textContent=open?'expand_less':'expand_more';});
+$('blurMoreToggle').addEventListener('click',()=>{const c=$('blurMoreContent'),open=!c.hidden;c.hidden=!open;$('blurMoreToggle').setAttribute('aria-expanded',String(open));});
 $('refresh').addEventListener('click',async()=>{setProgress(true,'正在刷新状态与诊断…');try{await refresh(true);toast('诊断已刷新')}catch(_){toast('无法读取诊断')}finally{setProgress(false)}});
 $('viewDetails').addEventListener('click',()=>{const details=$('diagnosticsDetails');details.open=!details.open;$('viewDetails').setAttribute('aria-expanded',String(details.open))});
 $('restoreButton').addEventListener('click',()=>dialog.open());
