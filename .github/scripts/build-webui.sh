@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
-npm install --no-package-lock --ignore-scripts
+npm install --include=dev --no-package-lock --ignore-scripts
 mkdir -p webroot/vendor
 ./node_modules/.bin/sass --no-source-map --load-path=node_modules .github/mdc/style.scss webroot/vendor/mdc.css
 cp .github/mdc/LICENSE webroot/vendor/MDC-LICENSE.txt
