@@ -7,12 +7,12 @@ import {MDCSnackbar} from '@material/snackbar';
 
 const ksuApi=window.ksu;
 const $=id=>document.getElementById(id);
-let execSeq=0,writeBusy=false,refreshSeq=0,refreshAgain=false,refreshPromise=null,themeSeq=0,themeDetecting=false,hookSaved=false,globalAllowed=null,systemuiSaved=true,launcherSaved=true;
+let execSeq=0,writeBusy=false,refreshSeq=0,refreshAgain=false,refreshPromise=null,themeSeq=0,themePromise=null,hookSaved=false,globalAllowed=null,systemuiSaved=true,launcherSaved=true;
 const preview=new URLSearchParams(location.search).get('preview');
 const mdcSwitches=new Map();
 document.querySelectorAll('.mdc-switch').forEach(el=>{const control=new MDCSwitch(el);mdcSwitches.set(el.querySelector('input').id,control)});
 document.querySelectorAll('.mdc-button').forEach(el=>new MDCButton(el));
-document.querySelectorAll('[data-mdc-ripple]').forEach(el=>new MDCRipple(el));
+document.querySelectorAll('.mdc-ripple-surface').forEach(el=>new MDCRipple(el));
 const progress=new MDCLinearProgress($('operationProgress'));
 const loadingProgress=new MDCLinearProgress($('loadingProgress'));
 loadingProgress.open();
@@ -82,9 +82,13 @@ async function detectSystemTheme(){
  if(m)return{dark:m[1].toLowerCase()==='true',source:'系统主题'};const media=window.matchMedia?.('(prefers-color-scheme: dark)');if(media)return{dark:media.matches,source:'WebView 主题'};throw new Error('无法读取系统主题');
 }
 async function syncSystemTheme(){
- if(themeDetecting)return;themeDetecting=true;const seq=++themeSeq;
- try{const state=await detectSystemTheme(),p=readTheme();if(seq!==themeSeq||!p.follow)return;document.documentElement.dataset.theme=state.dark?'dark':'light';setSwitch('themeAuto',true,false);setSwitch('themeDark',state.dark,true);$('themeState').textContent='手机当前为'+(state.dark?'深色':'浅色')+'模式'}
- catch(_){if(seq===themeSeq&&readTheme().follow)$('themeState').textContent='无法读取系统主题'}finally{themeDetecting=false}
+ const seq=++themeSeq;
+ if(themePromise){try{await themePromise}catch(_){}if(seq!==themeSeq||!readTheme().follow)return}
+ const request=(async()=>{
+  try{const state=await detectSystemTheme(),p=readTheme();if(seq!==themeSeq||!p.follow)return;document.documentElement.dataset.theme=state.dark?'dark':'light';setSwitch('themeAuto',true,false);setSwitch('themeDark',state.dark,true);$('themeState').textContent='手机当前为'+(state.dark?'深色':'浅色')+'模式'}
+  catch(_){if(seq===themeSeq&&readTheme().follow)$('themeState').textContent='无法读取系统主题'}
+ })();
+ themePromise=request;try{await request}finally{if(themePromise===request)themePromise=null}
 }
 function setBusy(value){
  writeBusy=value;document.querySelectorAll('.write-control').forEach(el=>{const parent=el.closest('.mdc-switch'),locked=el.dataset.locked==='1';el.disabled=value||locked;if(parent){parent.classList.toggle('mdc-switch--disabled',value||locked);const sw=mdcSwitches.get(el.id);if(sw)sw.disabled=value||locked}});
@@ -144,7 +148,7 @@ function renderPreview(mode){
 async function refreshDiagnostics(){
  if(preview){renderPreview(preview);return}
  $('diag').textContent='正在读取…';try{$('diag').textContent=await sh('/system/bin/sh /data/adb/modules/pixelblur-controller/action.sh')}
- catch(e){$('diag').textContent='诊断读取失败：'+(e?.message||String(e))}
+ catch(e){$('diag').textContent='诊断读取失败：'+(e?.message||String(e));throw e}
 }
 async function refresh(full=false){
  if(preview){renderPreview(preview);return}
@@ -183,7 +187,7 @@ document.querySelectorAll('.write-control').forEach(input=>input.addEventListene
 }));
 $('blurMoreToggle').addEventListener('click',()=>{const c=$('blurMoreContent'),open=!c.hidden;c.hidden=!open;$('blurMoreToggle').setAttribute('aria-expanded',String(open));$('blurMoreIcon').textContent=open?'expand_less':'expand_more';});
 $('refresh').addEventListener('click',async()=>{setProgress(true,'正在刷新状态与诊断…');try{await refresh(true);toast('诊断已刷新')}catch(_){toast('无法读取诊断')}finally{setProgress(false)}});
-$('viewDetails').addEventListener('click',()=>$('diagnosticsDetails').open=!$('diagnosticsDetails').open);
+$('viewDetails').addEventListener('click',()=>{const details=$('diagnosticsDetails');details.open=!details.open;$('viewDetails').setAttribute('aria-expanded',String(details.open))});
 $('restoreButton').addEventListener('click',()=>dialog.open());
 $('confirmRestore').addEventListener('click',async()=>{dialog.close();if(writeBusy)return;setBusy(true);setProgress(true,'正在恢复系统设置…');try{const result=await sh('/system/bin/sh /data/adb/modules/pixelblur-controller/global_blur.sh restore');try{await refresh(true)}catch(_){$('runtimeSummary').textContent='已恢复，状态读取失败'}toast(result||'已恢复系统默认模糊设置')}catch(e){$('runtimeSummary').textContent='恢复失败';toast('恢复失败')}finally{setProgress(false);setBusy(false)}});
 $('retryLoad').addEventListener('click',()=>initialize());
