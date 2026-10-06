@@ -46,8 +46,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build zip unzip
-          npm install --no-save playwright
-          npx playwright install --with-deps chromium
 
       - name: Syntax checks
         shell: bash
@@ -66,7 +64,10 @@ jobs:
           chmod +x build.sh service.sh action.sh global_blur.sh uninstall.sh .github/scripts/build-webui.sh
           ./build.sh
 
-      - name: Render WebUI light and dark previews
+      - name: Install preview browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Render WebUI state previews
         run: |
           mkdir -p preview-artifacts
           node .github/scripts/preview.mjs
