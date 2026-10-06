@@ -18,7 +18,7 @@ try {
 <main>
 <section class="card">
 <div class="section-title">常用 Blur 控制</div>
-<div class="row"><div><div class="label">Native Hook</div><div class="desc">控制新启动目标进程是否安装原生拦截</div></div><label class="switch"><input class="write-control" id="hook" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+<div class="row"><div><div class="label">Native Hook</div><div class="desc">模块启用时默认安装；关闭仅旁路拦截，不是卡启动保护，需在 KernelSU 禁用模块恢复启动</div></div><label class="switch"><input class="write-control" id="hook" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
 <div class="row"><div><div class="label">全局 Blur</div><div class="desc">控制 Android 全局窗口模糊；未知时不会显示确定开关状态</div><div id="globalState" class="desc detail-state">正在读取系统默认值与能力…</div></div><label class="switch"><input class="write-control" id="global" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
 </section>
 <section class="card collapse-card">
