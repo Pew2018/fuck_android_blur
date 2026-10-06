@@ -136,7 +136,7 @@ async function writeAction(id,on){
   if(id==='hook')await writeProp('persist.sys.pixelblur.hook',on);
   else if(id==='systemui')await writeProp('persist.sys.pixelblur.systemui',on);
   else if(id==='launcher')await writeProp('persist.sys.pixelblur.launcher',on);
-  else if(id==='global')await sh('/data/adb/modules/pixelblur-controller/global_blur.sh set '+(on?'allow':'deny'));
+  else if(id==='global')await sh('/system/bin/sh /data/adb/modules/pixelblur-controller/global_blur.sh set '+(on?'allow':'deny'));
   toast('设置已保存并完成读回验证');
  }catch(e){if(e.timeout)window.__pixelBlurLastTimeout=true;toast((e.timeout?'等待回调超时，底层命令可能仍在执行；重新读取状态：':'保存失败：')+(e.message||String(e)))}
  finally{
@@ -153,7 +153,7 @@ $('cancelRestore').addEventListener('click',closeDialog);
 function closeDialog(){dialog.classList.remove('show');dialog.setAttribute('aria-hidden','true')}
 $('confirmRestore').addEventListener('click',async()=>{
  if(writeBusy)return;closeDialog();setBusy(true);toast('正在恢复全局模糊原值…');
- try{const out=await sh('/data/adb/modules/pixelblur-controller/global_blur.sh restore');toast(out);await refresh();await refreshDiagnostics()}
+ try{const out=await sh('/system/bin/sh /data/adb/modules/pixelblur-controller/global_blur.sh restore');toast(out);await refresh();await refreshDiagnostics()}
  catch(e){toast('恢复失败：'+(e.message||String(e)));$('diag').textContent='恢复失败，若记录存在会保留供重试。 '+(e.message||String(e))}
  finally{setBusy(false)}
 });
