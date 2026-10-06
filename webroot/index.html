@@ -6,12 +6,13 @@
 <meta name="theme-color" content="#303030">
 <title>Pixel Blur Controller</title>
 <script>
+let initialDark=matchMedia('(prefers-color-scheme: dark)').matches;
 try {
  const f=localStorage.getItem('pixelBlur.theme.followSystem');
  const m=localStorage.getItem('pixelBlur.theme.manualDark');
- const dark=f==='0'&&m!==null?m==='1':matchMedia('(prefers-color-scheme: dark)').matches;
- document.documentElement.dataset.theme=dark?'dark':'light';
+ if(f==='0'&&(m==='0'||m==='1'))initialDark=m==='1';
 } catch (_) {}
+document.documentElement.dataset.theme=initialDark?'dark':'light';
 </script>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="vendor/mdc.css">
