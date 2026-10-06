@@ -47,7 +47,7 @@ try{
   assert.equal(asyncChecks.syncFailed,true);
   assert.equal(asyncChecks.syncCallbackRemoved,true);
   if(theme==='light'){
-   await page.locator('#themeAuto').click();await page.locator('#themeDark').click();
+   await page.locator('label.switch:has(#themeAuto)').click();await page.locator('label.switch:has(#themeDark)').click();
    assert.equal(await page.evaluate(()=>localStorage.getItem('pixelBlur.theme.followSystem')),'0');
    assert.equal(await page.evaluate(()=>localStorage.getItem('pixelBlur.theme.manualDark')),'1');
   }
