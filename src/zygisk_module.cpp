@@ -34,7 +34,7 @@ void logLine(const char* fmt,...){
  char message[512]{};va_list ap;va_start(ap,fmt);vsnprintf(message,sizeof(message),fmt,ap);va_end(ap);
  __android_log_print(ANDROID_LOG_INFO,kTag,"%s process_start_ticks=%s",message,gStartTicks.c_str());
 }
-bool hookEnabled(){return propBool("persist.sys.pixelblur.hook",false);}
+bool hookEnabled(){return propBool("persist.sys.pixelblur.hook",true);}
 bool blurDisabledForThisProcess(){
  if(!hookEnabled())return false;
  if(gProcess==kSystemUiProcess)return !propBool("persist.sys.pixelblur.systemui",true);
