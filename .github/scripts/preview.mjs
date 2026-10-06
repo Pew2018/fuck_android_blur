@@ -19,6 +19,7 @@ try{
   await page.goto('http://127.0.0.1:4173/?preview='+theme);
   await page.waitForSelector('#runtimeHint');
   assert.match(await page.locator('#runtimeHint').innerText(),/模拟数据/);
+  assert.equal(await page.locator('html').getAttribute('data-theme'),theme);
   const parsed=await page.evaluate(()=>{
    const m=window.PixelBlurModel;
    return {missing:m.parseGlobal('null','Window blurs are currently enabled'),zero:m.parseGlobal('0',''),one:m.parseGlobal('1',''),fail:m.parseGlobal('__QUERY_FAILED__','Window blurs are currently enabled'),installed:m.targetState(true,'123','installed'),wait:m.targetState(true,'123','not_installed'),bypass:m.targetState(false,'123','installed'),single:m.targetState(true,'','unknown'),unknown:m.targetState(true,'123','unknown')};
@@ -46,12 +47,12 @@ try{
   assert.equal(asyncChecks.callbackRemoved,true);
   assert.equal(asyncChecks.syncFailed,true);
   assert.equal(asyncChecks.syncCallbackRemoved,true);
+  await page.screenshot({path:'preview-artifacts/pixel-blur-'+theme+'.png',fullPage:true});
   if(theme==='light'){
    await page.locator('label.switch:has(#themeAuto)').click();await page.locator('label.switch:has(#themeDark)').click();
    assert.equal(await page.evaluate(()=>localStorage.getItem('pixelBlur.theme.followSystem')),'0');
    assert.equal(await page.evaluate(()=>localStorage.getItem('pixelBlur.theme.manualDark')),'1');
   }
-  await page.screenshot({path:'preview-artifacts/pixel-blur-'+theme+'.png',fullPage:true});
   await page.close();
  }
  const themePage=await browser.newPage({viewport:{width:412,height:900}});
