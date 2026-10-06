@@ -1,89 +1,41 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Pixel Blur Controller</title>
+<script>
+try {
+ const f=localStorage.getItem('pixelBlur.theme.followSystem');
+ const m=localStorage.getItem('pixelBlur.theme.manualDark');
+ const dark=f==='0'&&m!==null?m==='1':matchMedia('(prefers-color-scheme: dark)').matches;
+ document.documentElement.dataset.theme=dark?'dark':'light';
+} catch (_) {}
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="topbar">
-<div class="title">Pixel Blur Controller</div>
-<div class="subtitle">Android 16 · Pixel UI</div>
-</header>
-
+<header class="topbar"><div class="title">Pixel Blur Controller</div><div class="subtitle">Android 16 · Pixel UI</div></header>
 <main>
 <section class="card">
 <div class="section-title">常用 Blur 控制</div>
-
-<div class="row">
-<div><div class="label">Native Hook</div><div class="desc">安全模式总开关；开启后需重启</div></div>
-<label class="switch"><input id="hook" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
-</div>
-
-<div class="row">
-<div><div class="label">全局 Blur</div><div class="desc">Android 全局窗口 Blur</div></div>
-<label class="switch"><input id="global" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
-</div>
+<div class="row"><div><div class="label">Native Hook</div><div class="desc">模块启用时默认安装；关闭仅旁路拦截，不是卡启动保护，需在 KernelSU 禁用模块恢复启动</div></div><label class="switch"><input class="write-control" id="hook" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+<div class="row"><div><div class="label">全局 Blur</div><div class="desc">控制 Android 全局窗口模糊；未知时不会显示确定开关状态</div><div id="globalState" class="desc detail-state">正在读取系统默认值与能力…</div></div><label class="switch"><input class="write-control" id="global" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
 </section>
-
 <section class="card collapse-card">
-<button id="blurMoreToggle" class="card-toggle" type="button" aria-expanded="false">
-<div>
-<div class="section-title">其他 Blur 控制</div>
-<div id="blurMoreSummary" class="card-summary">SystemUI 与 Launcher / Recents</div>
-</div>
-<span id="blurMoreIcon" class="card-icon">＋</span>
-</button>
-
+<button id="blurMoreToggle" class="card-toggle" type="button" aria-expanded="false"><div><div class="section-title">其他 Blur 控制</div><div id="blurMoreSummary" class="card-summary">SystemUI 与 Launcher / Recents</div></div><span id="blurMoreIcon" class="card-icon">＋</span></button>
 <div id="blurMoreContent" class="collapse-content hidden">
-<div class="row">
-<div><div class="label">SystemUI Blur</div><div class="desc">Notification Shade / Quick Settings</div></div>
-<label class="switch"><input id="systemui" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
-</div>
-
-<div class="row">
-<div><div class="label">Launcher / Recents Blur</div><div class="desc">Pixel Launcher / Recents</div></div>
-<label class="switch"><input id="launcher" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
-</div>
-</div>
-</section>
-
-<section class="card">
-<div class="section-title">界面设置</div>
-
-<div class="row">
-<div>
-<div class="label">自动跟随系统主题</div>
-<div class="desc">进入 WebUI 自动检测手机当前深色模式，并自动同步</div>
-</div>
-<label class="switch"><input id="themeAuto" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
-</div>
-
-<div class="row">
-<div>
-<div class="label">深色模式</div>
-<div id="themeManualDesc" class="desc">关闭自动跟随后手动控制 WebUI</div>
-</div>
-<label class="switch"><input id="themeDark" type="checkbox"><span class="track"></span><span class="thumb"></span></label>
-</div>
-
-<div id="themeState" class="theme-state">正在检测手机当前主题…</div>
-</section>
-
-<section class="card">
-<div class="section-title">当前状态</div>
-<pre id="status" class="status">读取中…</pre>
-</section>
-
-<section class="card">
-<div class="section-title">诊断</div>
-<button id="refresh" class="button">刷新状态</button>
-<pre id="diag" class="status">读取中…</pre>
-</section>
-
-<div id="toast" class="toast"></div>
+<div class="row"><div><div class="label">SystemUI Blur</div><div class="desc">Notification Shade / Quick Settings</div><div id="systemuiState" class="desc detail-state">正在读取运行状态…</div></div><label class="switch"><input class="write-control" id="systemui" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+<div class="row"><div><div class="label">Launcher / Recents Blur</div><div class="desc">Pixel Launcher / Recents</div><div id="launcherState" class="desc detail-state">正在读取运行状态…</div></div><label class="switch"><input class="write-control" id="launcher" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+</div></section>
+<section class="card"><div class="section-title">界面设置</div>
+<div class="row"><div><div class="label">自动跟随系统主题</div><div class="desc">只控制 WebUI 外观，不更改 Android 系统主题</div></div><label class="switch"><input id="themeAuto" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+<div class="row"><div><div class="label">深色模式</div><div class="desc">手动主题会保留，供以后切回手动模式</div></div><label class="switch"><input id="themeDark" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+<div id="themeState" class="theme-state">正在检测手机当前主题…</div></section>
+<section class="card"><div class="section-title">当前状态</div><div id="runtimeHint" class="status-line">正在区分保存配置与运行状态…</div><pre id="status" class="status">读取中…</pre></section>
+<section class="card"><div class="section-title">恢复全局模糊原值</div><div class="status-line">仅恢复本模块首次修改前记录的 disable_window_blurs；旧版本曾修改过的值无法追溯，记录从启用此恢复机制后的首次修改前开始。不会恢复整个系统 UI。关闭 Native Hook 只会旁路拦截；禁用模块不会自动恢复。禁用前请先使用此入口，卸载时由卸载脚本尝试恢复。</div><button id="restoreGlobal" class="button write-control" type="button">恢复全局模糊原值</button></section>
+<section class="card"><div class="section-title">诊断</div><button id="refresh" class="button" type="button">刷新状态与诊断</button><pre id="diag" class="status">读取中…</pre></section>
 </main>
+<div id="confirmDialog" class="dialog-scrim" aria-hidden="true"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div id="dialogTitle" class="dialog-title">恢复全局模糊原值？</div><div class="dialog-copy">将恢复模块首次修改前记录的设置值；如果原来没有该设置，将删除该键以恢复系统默认。此操作不会恢复其他系统 UI 效果。</div><div class="dialog-actions"><button id="cancelRestore" class="text-button" type="button">取消</button><button id="confirmRestore" class="text-button primary" type="button">恢复</button></div></div></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script type="module" src="app.js"></script>
-</body>
-</html>
+</body></html>
