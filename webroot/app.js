@@ -184,7 +184,7 @@ document.querySelectorAll('.write-control').forEach(input=>input.addEventListene
  if((input.id==='systemui'||input.id==='launcher')&&(globalAllowed!==true||!hookSaved)){updateChildren();return}
  writeAction(input.id,input.checked);
 }));
-$('blurMoreToggle').addEventListener('click',()=>{const c=$('blurMoreContent'),open=!c.hidden;c.hidden=!open;$('blurMoreToggle').setAttribute('aria-expanded',String(open));});
+$('blurMoreToggle').addEventListener('click',()=>{const c=$('blurMoreContent'),open=c.hidden;c.hidden=!open;$('blurMoreToggle').setAttribute('aria-expanded',String(open));});
 $('refresh').addEventListener('click',async()=>{setProgress(true,'正在刷新状态与诊断…');try{await refresh(true);toast('诊断已刷新')}catch(_){toast('无法读取诊断')}finally{setProgress(false)}});
 $('viewDetails').addEventListener('click',()=>{const details=$('diagnosticsDetails');details.open=!details.open;$('viewDetails').setAttribute('aria-expanded',String(details.open))});
 $('restoreButton').addEventListener('click',()=>dialog.open());
