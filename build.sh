@@ -17,13 +17,12 @@ cmake -S "$ROOT" -B "$BUILD" -G Ninja -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/
 cmake --build "$BUILD" --parallel
 chmod 0755 "$ROOT/service.sh" "$ROOT/action.sh" "$ROOT/global_blur.sh" "$ROOT/uninstall.sh"
 rm -rf "$ROOT/lib" "$ROOT/zygisk"; mkdir -p "$ROOT/zygisk"; cp "$BUILD/libpixelblur.so" "$ROOT/zygisk/arm64-v8a.so"
-VERSION="$(sed -n 's/^version=//p' "$ROOT/module.prop")"
-OUT="$ROOT/pixelblur-controller-$VERSION-$(date +%Y%m%d-%H%M%S).zip"
+OUT="$ROOT/pixelblur-controller-install.zip"
 rm -f "$ROOT"/pixelblur-controller-*.zip
 (cd "$ROOT" && zip -r -9 "$OUT" module.prop service.sh action.sh uninstall.sh global_blur.sh webroot zygisk >/dev/null)
-unzip -l "$OUT" | grep -q 'uninstall.sh'; unzip -l "$OUT" | grep -q 'global_blur.sh'
-zipinfo -l "$OUT" | awk '$NF == "uninstall.sh" || $NF == "global_blur.sh" {
+unzip -l "$OUT" | grep -q 'uninstall.sh'; unzip -l "$OUT" | grep -q 'global_blur.sh'; unzip -l "$OUT" | grep -q 'action.sh'
+zipinfo -l "$OUT" | awk '$NF == "service.sh" || $NF == "action.sh" || $NF == "uninstall.sh" || $NF == "global_blur.sh" {
   found++;
   if (substr($1,4,1) != "x" || substr($1,7,1) != "x" || substr($1,10,1) != "x") bad=1;
-} END { exit (found == 2 && !bad) ? 0 : 1 }' || { echo "Executable permission missing from recovery scripts" >&2; exit 1; }
+} END { exit (found == 4 && !bad) ? 0 : 1 }' || { echo "Executable permission missing from module scripts" >&2; exit 1; }
 echo "Built and checked: $OUT"
