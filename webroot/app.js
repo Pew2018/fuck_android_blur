@@ -1,7 +1,6 @@
 import {MDCSwitch} from '@material/switch';
 import {MDCRipple} from '@material/ripple';
 import {MDCLinearProgress} from '@material/linear-progress';
-import {MDCButton} from '@material/button';
 import {MDCDialog} from '@material/dialog';
 import {MDCSnackbar} from '@material/snackbar';
 
@@ -11,14 +10,13 @@ let execSeq=0,writeBusy=false,refreshSeq=0,refreshAgain=false,refreshPromise=nul
 const preview=new URLSearchParams(location.search).get('preview');
 const mdcSwitches=new Map();
 document.querySelectorAll('.mdc-switch').forEach(el=>{const control=new MDCSwitch(el);mdcSwitches.set(el.querySelector('input').id,control)});
-document.querySelectorAll('.mdc-button').forEach(el=>new MDCButton(el));
 document.querySelectorAll('.mdc-ripple-surface').forEach(el=>new MDCRipple(el));
 const progress=new MDCLinearProgress($('operationProgress'));
 const loadingProgress=new MDCLinearProgress($('loadingProgress'));
 loadingProgress.open();
 const snackbar=new MDCSnackbar($('snackbar'));
 const dialog=new MDCDialog($('restoreDialog'));
-window.PixelBlurMDC={MDCSwitch,MDCRipple,MDCLinearProgress,MDCButton,MDCDialog,MDCSnackbar};
+window.PixelBlurMDC={MDCSwitch,MDCRipple,MDCLinearProgress,MDCDialog,MDCSnackbar};
 function toast(message){$('snackbarLabel').textContent=message;snackbar.open()}
 function setProgress(active,label='正在读取系统状态…'){
  $('operationProgress').setAttribute('aria-label',label);$('operationProgress').setAttribute('aria-hidden',String(!active));
