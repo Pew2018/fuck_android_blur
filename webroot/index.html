@@ -20,7 +20,6 @@ document.documentElement.dataset.theme=initialDark?'dark':'light';
 <body>
 <header class="topbar" role="banner">
  <div class="title">Pixel Blur Controller</div>
- <div class="subtitle">Android 16 · Pixel UI</div>
 </header>
 <section id="loadingShell" class="loading-shell" aria-live="polite">
  <div id="loadingProgress" class="mdc-linear-progress mdc-linear-progress--indeterminate" role="progressbar" aria-label="正在读取系统状态" aria-valuemin="0" aria-valuemax="1">
@@ -28,7 +27,7 @@ document.documentElement.dataset.theme=initialDark?'dark':'light';
   <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
   <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
  </div>
- <div class="loading-copy"><div id="loadingText" class="loading-title">正在读取系统状态…</div><div id="loadingSubtext" class="loading-subtitle">正在连接 KernelSU Next…</div>
+ <div class="loading-copy"><div id="loadingText" class="loading-title">正在读取系统状态…</div><div id="loadingSubtext" class="loading-subtitle"></div>
   <div id="loadingError" class="loading-error" hidden><button id="retryLoad" class="mdc-button mdc-button--raised" type="button" data-mdc-ripple><span class="mdc-button__ripple"></span><span class="mdc-button__label">重试</span></button></div>
  </div>
 </section>
@@ -41,11 +40,11 @@ document.documentElement.dataset.theme=initialDark?'dark':'light';
  <section class="card">
   <h2 class="section-title">常用控制</h2>
   <div class="row">
-   <div class="row-copy"><div id="hookLabel" class="label">Native Hook</div><div class="desc">安装系统模糊拦截</div><div id="hookState" class="state-text">正在读取…</div><div id="hookMeta" class="meta-text">正在读取运行状态</div></div>
+   <div class="row-copy"><div id="hookLabel" class="label">Native Hook</div><div class="desc">安装系统模糊拦截</div><div id="hookState" class="state-text"></div><div id="hookMeta" class="meta-text">正在读取运行状态</div></div>
    <div class="mdc-switch"><div class="mdc-switch__track"></div><div class="mdc-switch__thumb-underlay"><div class="mdc-switch__thumb"></div><input id="hook" class="mdc-switch__native-control write-control" type="checkbox" role="switch" aria-labelledby="hookLabel"></div></div>
   </div>
   <div class="row">
-   <div class="row-copy"><div id="globalLabel" class="label">全局模糊</div><div id="globalSummary" class="desc">允许 Android 使用窗口模糊</div><div id="globalState" class="state-text">正在读取…</div><div id="globalMeta" class="meta-text">设置：正在读取 · 设备能力：正在读取</div></div>
+   <div class="row-copy"><div id="globalLabel" class="label">全局模糊</div><div id="globalSummary" class="desc">允许 Android 使用窗口模糊</div><div id="globalState" class="state-text"></div><div id="globalMeta" class="meta-text">设置：正在读取 · 设备能力：正在读取</div></div>
    <div class="mdc-switch"><div class="mdc-switch__track"></div><div class="mdc-switch__thumb-underlay"><div class="mdc-switch__thumb"></div><input id="global" class="mdc-switch__native-control write-control" type="checkbox" role="switch" aria-labelledby="globalLabel"></div></div>
   </div>
  </section>
@@ -85,7 +84,7 @@ document.documentElement.dataset.theme=initialDark?'dark':'light';
   <h2 class="section-title">恢复</h2>
   <div class="status-overview"><div class="label">恢复系统默认模糊设置</div><div class="desc">撤销本模块保存的全局模糊修改</div></div>
   <div class="help-copy">只恢复全局模糊设置，不会更改其他系统界面。禁用模块前可先执行恢复；卸载时会尝试恢复。</div>
-  <button id="restoreButton" class="mdc-button mdc-button--raised write-control" type="button" data-mdc-ripple><span class="mdc-button__ripple"></span><span class="mdc-button__label">恢复系统默认模糊</span></button>
+  <div class="restore-actions"><button id="restoreButton" class="mdc-button mdc-button--raised write-control" type="button" data-mdc-ripple><span class="mdc-button__ripple"></span><span class="mdc-button__label">恢复系统默认模糊</span></button></div>
  </section>
  <section class="card">
   <h2 class="section-title">诊断</h2>
