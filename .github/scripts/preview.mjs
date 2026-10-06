@@ -59,6 +59,7 @@ try{
  await disclosure.click();
  assert.equal(await disclosure.getAttribute('aria-expanded'),'false');
  assert.equal(await page.locator('#blurMoreContent').isVisible(),false);
+ await disclosure.click();
  await page.screenshot({path:'preview-artifacts/webui-disclosure-open.png',fullPage:true});
  const model=await page.evaluate(()=>{
   const m=window.PixelBlurModel;
@@ -102,6 +103,11 @@ try{
  await themePage.waitForTimeout(500);
  console.log('Theme init state:',JSON.stringify(await themePage.evaluate(()=>({theme:document.documentElement.dataset.theme,ksu:typeof window.ksu?.exec,model:typeof window.PixelBlurModel,mainReady:document.getElementById('main').classList.contains('ready'),loadingError:document.getElementById('loadingText').textContent+' / '+document.getElementById('loadingSubtext').textContent,callback:Object.keys(window).filter(k=>k.startsWith('__pixelBlurExecCallback_'))}))),'page errors:',JSON.stringify(themeErrors));
  await themePage.waitForSelector('#main.ready');
+ const lineBreaks=await themePage.evaluate(()=>({details:document.getElementById('runtimeDetails').textContent,status:document.getElementById('status').textContent}));
+ assert.ok(lineBreaks.details.includes('\\n')===false);
+ assert.ok(lineBreaks.details.includes('\n'));
+ assert.ok(lineBreaks.status.includes('\\n')===false);
+ assert.ok(lineBreaks.status.includes('\n'));
  assert.equal(await themePage.locator('html').getAttribute('data-theme'),'dark');
  assert.equal(await themePage.locator('#themeDark').isChecked(),true);
  await themePage.reload();await themePage.waitForSelector('#main.ready');
