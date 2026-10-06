@@ -22,5 +22,8 @@ OUT="$ROOT/pixelblur-controller-$VERSION-$(date +%Y%m%d-%H%M%S).zip"
 rm -f "$ROOT"/pixelblur-controller-*.zip
 (cd "$ROOT" && zip -r -9 "$OUT" module.prop service.sh action.sh uninstall.sh global_blur.sh webroot zygisk >/dev/null)
 unzip -l "$OUT" | grep -q 'uninstall.sh'; unzip -l "$OUT" | grep -q 'global_blur.sh'
-unzip -Z -v "$OUT" | grep -A3 -E 'uninstall\.sh|global_blur\.sh' | grep -q '100755' || { echo "Executable permission missing from recovery scripts" >&2; exit 1; }
+zipinfo -l "$OUT" | awk '$NF == "uninstall.sh" || $NF == "global_blur.sh" {
+  found++;
+  if (substr($1,4,1) != "x" || substr($1,7,1) != "x" || substr($1,10,1) != "x") bad=1;
+} END { exit (found == 2 && !bad) ? 0 : 1 }' || { echo "Executable permission missing from recovery scripts" >&2; exit 1; }
 echo "Built and checked: $OUT"

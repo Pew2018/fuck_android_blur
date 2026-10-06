@@ -15,6 +15,7 @@ function execRoot(cmd,timeoutMs=15000){
  });
 }
 const sh=async cmd=>(await execRoot(cmd)).trim();
+if(preview)window.PixelBlurExec=execRoot;
 async function writeProp(key,on){const expected=on?'1':'0';await sh('setprop '+key+' '+expected);const actual=await sh('getprop '+key);if(actual!==expected)throw new Error('写入读回不匹配：'+key)}
 function parsePairs(raw){return Object.fromEntries(raw.split(/\r?\n/).filter(Boolean).map(line=>{const i=line.indexOf('=');return i<0?[line,'']:[line.slice(0,i),line.slice(i+1)]}))}
 function parseWmBlur(text){

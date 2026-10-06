@@ -15,6 +15,7 @@ const browser=await chromium.launch({headless:true});
 try{
  for(const theme of ['light','dark']){
   const page=await browser.newPage({viewport:{width:412,height:1100},deviceScaleFactor:1});
+  await page.addInitScript(()=>{window.ksu={exec:()=>{}}});
   await page.goto('http://127.0.0.1:4173/?preview='+theme);
   await page.waitForSelector('#runtimeHint');
   assert.match(await page.locator('#runtimeHint').innerText(),/模拟数据/);
@@ -26,6 +27,25 @@ try{
   assert.equal(parsed.zero.explicit,'0');assert.equal(parsed.one.explicit,'1');assert.equal(parsed.fail.allowed,null);
   assert.match(parsed.installed,/Hook 已安装/);assert.match(parsed.wait,/等待目标进程重新启动/);
   assert.match(parsed.bypass,/旁路/);assert.match(parsed.single,/未运行/);assert.match(parsed.unknown,/未确认/);
+  const asyncChecks=await page.evaluate(async()=>{
+   let callbackName='';
+   window.ksu.exec=(cmd,name)=>{callbackName=name};
+   const savedCallbackPromise=Promise.resolve().then(()=>window[callbackName]);
+   const timed=window.PixelBlurExec('timeout-test',25).then(()=>({timeout:false}),e=>({timeout:!!e.timeout,message:e.message}));
+   const late=await savedCallbackPromise;
+   const timeoutResult=await timed;
+   late?.(0,'late result','');
+   const callbackRemoved=typeof window[callbackName]==='undefined';
+   window.ksu.exec=(cmd,name)=>{callbackName=name;throw new Error('sync failure')};
+   let syncFailed=false;try{await window.PixelBlurExec('sync-test',100)}catch(e){syncFailed=e.message==='sync failure'}
+   const syncCallbackRemoved=typeof window[callbackName]==='undefined';
+   return {timeoutResult,callbackRemoved,syncFailed,syncCallbackRemoved};
+  });
+  assert.equal(asyncChecks.timeoutResult.timeout,true);
+  assert.match(asyncChecks.timeoutResult.message,/底层命令可能仍在执行/);
+  assert.equal(asyncChecks.callbackRemoved,true);
+  assert.equal(asyncChecks.syncFailed,true);
+  assert.equal(asyncChecks.syncCallbackRemoved,true);
   if(theme==='light'){
    await page.locator('#themeAuto').click();await page.locator('#themeDark').click();
    assert.equal(await page.evaluate(()=>localStorage.getItem('pixelBlur.theme.followSystem')),'0');
