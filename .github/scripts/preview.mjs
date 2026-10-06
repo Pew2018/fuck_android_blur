@@ -54,5 +54,24 @@ try{
   await page.screenshot({path:'preview-artifacts/pixel-blur-'+theme+'.png',fullPage:true});
   await page.close();
  }
- console.log('Model assertions passed; generated light and dark simulated previews.');
+ const themePage=await browser.newPage({viewport:{width:412,height:900}});
+ await themePage.addInitScript(()=>{
+  localStorage.setItem('pixelBlur.theme.followSystem','0');
+  localStorage.setItem('pixelBlur.theme.manualDark','1');
+  window.ksu={exec:(cmd,name)=>{
+   let out='';
+   if(cmd.includes('dumpsys uimode'))out='mComputedNightMode=false';
+   else if(cmd.includes('__WM_BEGIN__'))out='hook=0\nglobal=null\nsystemui=1\nlauncher=1\n__WM_BEGIN__\nBlur supported on device: true\nBlur enabled: true\n__WM_END__\nsystemui.pid=\nsystemui.start_ticks=\nsystemui.hook=not_running\nlauncher.pid=\nlauncher.start_ticks=\nlauncher.hook=not_running';
+   else out='simulated diagnostics';
+   setTimeout(()=>window[name](0,out,''),0);
+  }};
+ });
+ await themePage.goto('http://127.0.0.1:4173/');
+ assert.equal(await themePage.locator('html').getAttribute('data-theme'),'dark');
+ assert.equal(await themePage.locator('#themeAuto').isChecked(),false);
+ await themePage.reload();
+ assert.equal(await themePage.locator('html').getAttribute('data-theme'),'dark');
+ assert.equal(await themePage.locator('#themeDark').isChecked(),true);
+ await themePage.close();
+ console.log('Model, async callback, manual theme reload, and preview assertions passed.');
 }finally{await browser.close();server.close()}
