@@ -45,6 +45,21 @@ try{
   }
   await page.screenshot({path:'preview-artifacts/webui-'+mode+'.png',fullPage:true});
  }
+ await page.goto('http://127.0.0.1:4173/?preview=light');
+ await page.waitForSelector('#main.ready');
+ const disclosure=page.locator('#blurMoreToggle');
+ assert.equal(await disclosure.getAttribute('aria-expanded'),'false');
+ assert.equal(await disclosure.locator('svg').count(),1);
+ assert.equal(await disclosure.locator('.mdc-ripple-upgraded').count(),0);
+ await disclosure.click();
+ assert.equal(await disclosure.getAttribute('aria-expanded'),'true');
+ assert.equal(await page.locator('#blurMoreContent').isVisible(),true);
+ assert.equal(await disclosure.locator('svg').count(),1);
+ assert.doesNotMatch(await disclosure.innerText(),/expand_(more|less)/);
+ await disclosure.click();
+ assert.equal(await disclosure.getAttribute('aria-expanded'),'false');
+ assert.equal(await page.locator('#blurMoreContent').isVisible(),false);
+ await page.screenshot({path:'preview-artifacts/webui-disclosure-open.png',fullPage:true});
  const model=await page.evaluate(()=>{
   const m=window.PixelBlurModel;
   return{
