@@ -2,7 +2,7 @@ name: Build Pixel Blur Controller
 
 on:
   push:
-    branches: [main, "ci/**"]
+    branches: [main, "ci/**", "fix/**"]
   pull_request:
   workflow_dispatch:
 
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  verify-build-preview:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,17 +26,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          SDKMANAGER=""
+          SDK_ROOT="$ANDROID_SDK_ROOT"
           if [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
             SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           else
             SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 3 -type f -name sdkmanager -perm -111 2>/dev/null | sort | tail -n 1)"
           fi
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager not found under $SDK_ROOT" >&2
-            exit 1
-          fi
+          if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found under $SDK_ROOT" >&2; exit 1; fi
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
           echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
@@ -44,20 +40,45 @@ jobs:
           /usr/bin/yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "ndk;27.2.12479018"
 
-      - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zip
+      - name: Install build and preview tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build zip unzip
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
 
-      - name: Build module
+      - name: Syntax checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh -n service.sh action.sh global_blur.sh uninstall.sh
+          bash -n build.sh
+          node --check webroot/app.js
+          node --check .github/scripts/preview.mjs
+
+      - name: Build and verify module ZIP
         shell: bash
         run: |
           set -euo pipefail
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
-          chmod +x build.sh service.sh action.sh
+          chmod +x build.sh service.sh action.sh global_blur.sh uninstall.sh
           ./build.sh
 
-      - name: Upload module ZIP
+      - name: Render WebUI light and dark previews
+        run: |
+          mkdir -p preview-artifacts
+          node .github/scripts/preview.mjs
+
+      - name: Upload installable module ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: pixelblur-controller
-          path: "*.zip"
+          name: pixelblur-controller-module
+          path: "pixelblur-controller-*.zip"
+          if-no-files-found: error
+
+      - name: Upload WebUI previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixelblur-controller-webui-previews
+          path: preview-artifacts/*.png
           if-no-files-found: error
