@@ -27,6 +27,7 @@ try{
   }else{
    await page.waitForSelector('#main.ready');
    assert.equal(await page.evaluate(()=>!!window.PixelBlurMDC?.MDCSwitch),true);
+   assert.ok(await page.locator('.mdc-button').count()>0);
    assert.equal(await page.evaluate(()=>!!window.PixelBlurMDC?.MDCDialog),true);
    assert.equal(await page.locator('html').getAttribute('data-theme'),mode==='dark'?'dark':'light');
    if(mode==='global-off'){
