@@ -13,39 +13,61 @@ document.querySelectorAll('.mdc-switch').forEach(el=>{const control=new MDCSwitc
 document.querySelectorAll('.mdc-button').forEach(el=>new MDCRipple(el));
 const progress=new MDCLinearProgress($('operationProgress'));
 
-let loadingProgress=null,loadingStartToken=0,loadingFrame=0;
-function ensureLoadingProgress(){
- if(!loadingProgress)loadingProgress=new MDCLinearProgress($('loadingProgress'));
- return loadingProgress;
-}
+// Keep the indicator measurable; never enter the native bridge before its first paint.
+let loadingProgress=null,loadingStartToken=0,loadingFrame=0,loadingTask=0,loadingResolve=null,loadingReject=null;
 function cancelLoadingProgressFrame(){
  if(loadingFrame){cancelAnimationFrame(loadingFrame);loadingFrame=0}
+ if(loadingTask){clearTimeout(loadingTask);loadingTask=0}
 }
-function scheduleLoadingProgress(token,shell){
+function finishLoadingStart(started,error){
+ const resolve=loadingResolve,reject=loadingReject;loadingResolve=null;loadingReject=null;
+ if(error&&reject)reject(error);else if(resolve)resolve(started);
+}
+function scheduleLoadingProgress(){
  cancelLoadingProgressFrame();
- if(document.hidden)return;
+ if(document.hidden||!document.body.classList.contains('loading-active'))return;
+ const token=loadingStartToken,shell=$('loadingShell');
+ const valid=()=>token===loadingStartToken&&!shell.hidden&&!document.hidden&&document.body.classList.contains('loading-active');
  loadingFrame=requestAnimationFrame(()=>{
   loadingFrame=requestAnimationFrame(()=>{
    loadingFrame=0;
-   if(token!==loadingStartToken||shell.hidden||document.hidden)return;
-   const indicator=ensureLoadingProgress(),root=indicator.root;
-   root.classList.remove('mdc-linear-progress--animation-ready');
-   root.getBoundingClientRect();
-   root.classList.add('mdc-linear-progress--animation-ready');
-   indicator.open();
+   if(!valid())return;
+   const root=$('loadingProgress');
+   if(root.getBoundingClientRect().width<=0){scheduleLoadingProgress();return}
+   try{
+    if(!loadingProgress)loadingProgress=new MDCLinearProgress(root);
+    // The public setter recalculates MDC's own width-dependent animation dimensions.
+    loadingProgress.determinate=false;
+    loadingProgress.open();
+   }catch(error){finishLoadingStart(false,error);return}
+   // RAF runs before paint. Cross another painted frame and yield a task before exec.
+   loadingFrame=requestAnimationFrame(()=>{
+    loadingFrame=requestAnimationFrame(()=>{
+     loadingFrame=0;
+     if(!valid())return;
+     loadingTask=setTimeout(()=>{
+      loadingTask=0;
+      if(valid())finishLoadingStart(true);
+     },0);
+    });
+   });
   });
  });
 }
 function startLoadingProgress(){
- const token=++loadingStartToken,shell=$('loadingShell');
- shell.hidden=false;
+ stopLoadingProgress();
+ const shell=$('loadingShell');
+ shell.hidden=false;shell.classList.remove('loading-hidden');
  document.body.classList.add('loading-active');
  setProgress(false);
- scheduleLoadingProgress(token,shell);
+ const started=new Promise((resolve,reject)=>{loadingResolve=resolve;loadingReject=reject});
+ scheduleLoadingProgress();
+ return started;
 }
 function stopLoadingProgress(){
  loadingStartToken++;
  cancelLoadingProgressFrame();
+ finishLoadingStart(false);
  if(loadingProgress)loadingProgress.close();
  document.body.classList.remove('loading-active');
 }
@@ -230,13 +252,25 @@ function revealMain(){
 }
 async function initialize(){
  if(preview){renderPreview(preview);return}
- $('loadingShell').hidden=false;$('loadingError').hidden=true;$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='';startLoadingProgress();
- try{await refreshStatus();revealMain();$('loadingError').hidden=true;setProgress(false);$('runtimeSummary').textContent=$('runtimeSummary').textContent||'状态已更新'}
- catch(e){$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false);stopLoadingProgress()}
+ $('loadingShell').hidden=false;$('loadingError').hidden=true;$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='';
+ const started=startLoadingProgress(),token=loadingStartToken;
+ try{
+  if(!await started||token!==loadingStartToken)return;
+  // No native theme/status reads are allowed ahead of the painted loading indicator.
+  if(readTheme().follow)syncSystemTheme();
+  await refreshStatus();
+  if(token!==loadingStartToken)return;
+  revealMain();$('loadingError').hidden=true;setProgress(false);$('runtimeSummary').textContent=$('runtimeSummary').textContent||'状态已更新'}
+ catch(e){if(token!==loadingStartToken)return;$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false);stopLoadingProgress()}
 }
 function init(){
- applyInitialTheme();const p=readTheme();if(p.follow)syncSystemTheme();else $('themeState').textContent='手动使用已保存的主题';
+ applyInitialTheme();const p=readTheme();if(!p.follow)$('themeState').textContent='手动使用已保存的主题';
  setSwitch('themeAuto',p.follow,false);initialize();
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&document.body.classList.contains('loading-active'))scheduleLoadingProgress(loadingStartToken,$('loadingShell'));if(!document.hidden&&readTheme().follow)syncSystemTheme()});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){cancelLoadingProgressFrame();return}
+ if(document.body.classList.contains('loading-active')){
+  if(loadingResolve)scheduleLoadingProgress();
+ }else if(readTheme().follow)syncSystemTheme();
+});
 init();

@@ -169,6 +169,102 @@ try{
  assert.equal(await themePage.locator('html').getAttribute('data-theme'),'dark');
  assert.equal(await themePage.locator('#themeDark').isChecked(),true);
  await themePage.close();
+
+ // Exercise initialize(), not ?preview=loading: a callback API can block before returning.
+ // The old init called theme exec before adding loading-active, and status exec before RAF.
+ for(const colorScheme of ['light','dark']){
+  const startup=await browser.newPage({viewport:{width:412,height:900},colorScheme});
+  const errors=[];
+  startup.on('pageerror',error=>errors.push(error.message));
+  await startup.addInitScript(()=>{
+   window.__bridge={calls:[],pending:[],frames:0};
+   const frame=()=>{window.__bridge.frames++;requestAnimationFrame(frame)};
+   requestAnimationFrame(frame);
+   window.ksu={exec:(cmd,name)=>{
+    const root=document.getElementById('loadingProgress'),style=getComputedStyle(root);
+    window.__bridge.calls.push({
+     cmd,frames:window.__bridge.frames,active:document.body.classList.contains('loading-active'),
+     ready:root.classList.contains('mdc-linear-progress--animation-ready'),
+     width:root.getBoundingClientRect().width,half:parseFloat(style.getPropertyValue('--mdc-linear-progress-primary-half')),
+     animation:getComputedStyle(root.querySelector('.mdc-linear-progress__primary-bar')).animationName
+    });
+    // Model a native invocation that holds JS before returning. Never used in production.
+    const until=performance.now()+150;while(performance.now()<until){}
+    if(cmd.includes('dumpsys uimode'))setTimeout(()=>window[name](0,'mComputedNightMode='+matchMedia('(prefers-color-scheme: dark)').matches,''),0);
+    else window.__bridge.pending.push(name);
+   }};
+   window.__releaseStatus=(failed=false)=>{
+    const name=window.__bridge.pending.shift();
+    if(!name)throw new Error('No pending status request');
+    const out='hook=1\nglobal=0\nsystemui=1\nlauncher=1\n__WM_BEGIN__\nBlur supported on device: true\nBlur enabled: true\n__WM_END__\nsystemui.pid=1234\nsystemui.hook=installed\nlauncher.pid=5678\nlauncher.hook=installed';
+    window[name](failed?1:0,failed?'':out,failed?'simulated read failure':'');
+   };
+  });
+  await startup.goto('http://127.0.0.1:4173/');
+  await startup.waitForFunction(()=>window.__bridge.pending.length===1);
+  const initial=await startup.evaluate(()=>window.__bridge.calls);
+  for(const call of initial){
+   assert.equal(call.active,true,JSON.stringify(call));
+   assert.equal(call.ready,true,JSON.stringify(call));
+   assert.ok(call.frames>=4,JSON.stringify(call));
+   assert.ok(call.width>0&&call.half>0,JSON.stringify(call));
+   assert.match(call.animation,/primary-indeterminate/,JSON.stringify(call));
+  }
+  async function checkMotion(){
+   const sample=()=>startup.locator('#loadingProgress .mdc-linear-progress__primary-bar').evaluate(el=>({
+    outer:getComputedStyle(el).transform,inner:getComputedStyle(el.firstElementChild).transform
+   }));
+   const before=await sample();await startup.waitForTimeout(370);const after=await sample();
+   assert.notDeepEqual(before,after,'Real initialization must retain MDC translate and scale motion');
+   assert.equal(await startup.locator('#operationProgress').isVisible(),false);
+  }
+  await checkMotion();
+  await startup.screenshot({path:'preview-artifacts/webui-startup-'+colorScheme+'.png'});
+  await startup.evaluate(()=>window.__releaseStatus(true));
+  await startup.waitForSelector('#retryLoad',{state:'visible'});
+  assert.equal(await startup.locator('#loadingProgress').isVisible(),false);
+  assert.equal(await startup.locator('#loadingProgress').getAttribute('aria-hidden'),'true');
+  await startup.screenshot({path:'preview-artifacts/webui-startup-error-'+colorScheme+'.png'});
+  await startup.locator('#retryLoad').click();
+  await startup.waitForFunction(()=>window.__bridge.pending.length===1);
+  await startup.waitForFunction(()=>!document.querySelector('#loadingProgress').classList.contains('mdc-linear-progress--closed'));
+  await checkMotion();
+  await startup.evaluate(()=>window.__releaseStatus());
+  await startup.waitForSelector('#main.ready',{state:'visible'});
+  await startup.waitForSelector('#loadingShell',{state:'hidden'});
+  assert.equal(await startup.locator('#loadingProgress').isVisible(),false);
+  assert.equal(await startup.locator('html').getAttribute('data-theme'),colorScheme);
+  await startup.locator('#refresh').click();
+  await startup.waitForFunction(()=>window.__bridge.pending.length===1);
+  const operation=await startup.locator('#operationProgress .mdc-linear-progress__primary-bar').evaluate(el=>getComputedStyle(el).transform);
+  await startup.waitForTimeout(370);
+  assert.notEqual(await startup.locator('#operationProgress .mdc-linear-progress__primary-bar').evaluate(el=>getComputedStyle(el).transform),operation);
+  assert.equal(await startup.locator('#loadingProgress').isVisible(),false);
+  await startup.evaluate(()=>{window.__releaseStatus();window.ksu.exec=(cmd,name)=>setTimeout(()=>window[name](0,'diagnostics',''),0)});
+  await startup.waitForFunction(()=>!document.body.classList.contains('progress-active'));
+  assert.deepEqual(errors,[]);
+  await startup.close();
+ }
+ const hiddenStart=await browser.newPage({viewport:{width:412,height:900}});
+ await hiddenStart.addInitScript(()=>{
+  window.__hidden=true;window.__nativeCalls=0;
+  Object.defineProperty(document,'hidden',{configurable:true,get:()=>window.__hidden});
+  window.ksu={exec:()=>{window.__nativeCalls++}};
+ });
+ await hiddenStart.goto('http://127.0.0.1:4173/');
+ await hiddenStart.waitForTimeout(150);
+ assert.equal(await hiddenStart.evaluate(()=>window.__nativeCalls),0,'No native reads while startup is hidden');
+ await hiddenStart.evaluate(()=>{window.__hidden=false;document.dispatchEvent(new Event('visibilitychange'))});
+ await hiddenStart.waitForFunction(()=>window.__nativeCalls>0);
+ assert.equal(await hiddenStart.locator('#loadingProgress').isVisible(),true);
+ await hiddenStart.close();
+ const reduced=await browser.newPage({viewport:{width:412,height:900},reducedMotion:'reduce'});
+ await reduced.goto('http://127.0.0.1:4173/?preview=loading');
+ await reduced.waitForSelector('#loadingProgress.mdc-linear-progress--animation-ready');
+ assert.ok(await reduced.locator('#loadingProgress .mdc-linear-progress__primary-bar').evaluate(el=>parseFloat(getComputedStyle(el).animationDuration)<.001));
+ await reduced.close();
+ console.log('Real startup paint-before-bridge, slow bridge, loading/error/retry/success, operation motion, hidden startup recovery, light/dark, and reduced motion passed.');
+
  assert.deepEqual(pageErrors,[]);
  console.log('MDC components, light/dark/loading/error/busy/global-off/dialog/snackbar/diagnostics previews, state model, callback timeout/late callback, and manual theme persistence passed.');
 }finally{await browser.close();server.close()}
