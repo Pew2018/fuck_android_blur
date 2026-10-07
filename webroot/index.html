@@ -1,41 +1,112 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#303030">
 <title>Pixel Blur Controller</title>
 <script>
+let initialDark=matchMedia('(prefers-color-scheme: dark)').matches;
 try {
  const f=localStorage.getItem('pixelBlur.theme.followSystem');
  const m=localStorage.getItem('pixelBlur.theme.manualDark');
- const dark=f==='0'&&m!==null?m==='1':matchMedia('(prefers-color-scheme: dark)').matches;
- document.documentElement.dataset.theme=dark?'dark':'light';
+ if(f==='0'&&(m==='0'||m==='1'))initialDark=m==='1';
 } catch (_) {}
+document.documentElement.dataset.theme=initialDark?'dark':'light';
 </script>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/mdc.css">
 </head>
-<body>
-<header class="topbar"><div class="title">Pixel Blur Controller</div><div class="subtitle">Android 16 · Pixel UI</div></header>
-<main>
-<section class="card">
-<div class="section-title">常用 Blur 控制</div>
-<div class="row"><div><div class="label">Native Hook</div><div class="desc">模块启用时默认安装；关闭仅旁路拦截，不是卡启动保护，需在 KernelSU 禁用模块恢复启动</div></div><label class="switch"><input class="write-control" id="hook" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
-<div class="row"><div><div class="label">全局 Blur</div><div class="desc">控制 Android 全局窗口模糊；未知时不会显示确定开关状态</div><div id="globalState" class="desc detail-state">正在读取系统默认值与能力…</div></div><label class="switch"><input class="write-control" id="global" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+<body class="loading-active">
+<header class="page-header" role="banner">
+ <div class="topbar"><div class="title">Pixel Blur Controller</div></div>
+ <div class="progress-slot"> <div id="loadingProgress" class="mdc-linear-progress mdc-linear-progress--indeterminate loading-progress" role="progressbar" aria-label="正在读取系统状态" aria-valuemin="0" aria-valuemax="1">
+  <div class="mdc-linear-progress__buffer"><div class="mdc-linear-progress__buffer-bar"></div><div class="mdc-linear-progress__buffer-dots"></div></div>
+  <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+  <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+ </div><div id="operationProgress" class="mdc-linear-progress mdc-linear-progress--indeterminate operation-progress" role="progressbar" aria-label="正在处理" aria-valuemin="0" aria-valuemax="1" aria-hidden="true">
+ <div class="mdc-linear-progress__buffer"><div class="mdc-linear-progress__buffer-bar"></div><div class="mdc-linear-progress__buffer-dots"></div></div>
+ <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+ <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"><span class="mdc-linear-progress__bar-inner"></span></div>
+</div>
+ </div>
+</header>
+<section id="loadingShell" class="loading-shell" aria-live="polite">
+ <div class="loading-copy"><div id="loadingText" class="loading-title">正在读取系统状态…</div><div id="loadingSubtext" class="loading-subtitle"></div>
+  <div id="loadingError" class="loading-error" hidden><button id="retryLoad" class="mdc-button mdc-button--raised" type="button" data-mdc-ripple><span class="mdc-button__ripple"></span><span class="mdc-button__label">重试</span></button></div>
+ </div>
 </section>
-<section class="card collapse-card">
-<button id="blurMoreToggle" class="card-toggle" type="button" aria-expanded="false"><div><div class="section-title">其他 Blur 控制</div><div id="blurMoreSummary" class="card-summary">SystemUI 与 Launcher / Recents</div></div><span id="blurMoreIcon" class="card-icon">＋</span></button>
-<div id="blurMoreContent" class="collapse-content hidden">
-<div class="row"><div><div class="label">SystemUI Blur</div><div class="desc">Notification Shade / Quick Settings</div><div id="systemuiState" class="desc detail-state">正在读取运行状态…</div></div><label class="switch"><input class="write-control" id="systemui" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
-<div class="row"><div><div class="label">Launcher / Recents Blur</div><div class="desc">Pixel Launcher / Recents</div><div id="launcherState" class="desc detail-state">正在读取运行状态…</div></div><label class="switch"><input class="write-control" id="launcher" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
-</div></section>
-<section class="card"><div class="section-title">界面设置</div>
-<div class="row"><div><div class="label">自动跟随系统主题</div><div class="desc">只控制 WebUI 外观，不更改 Android 系统主题</div></div><label class="switch"><input id="themeAuto" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
-<div class="row"><div><div class="label">深色模式</div><div class="desc">手动主题会保留，供以后切回手动模式</div></div><label class="switch"><input id="themeDark" type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
-<div id="themeState" class="theme-state">正在检测手机当前主题…</div></section>
-<section class="card"><div class="section-title">当前状态</div><div id="runtimeHint" class="status-line">正在区分保存配置与运行状态…</div><pre id="status" class="status">读取中…</pre></section>
-<section class="card"><div class="section-title">恢复全局模糊原值</div><div class="status-line">仅恢复本模块首次修改前记录的 disable_window_blurs；旧版本曾修改过的值无法追溯，记录从启用此恢复机制后的首次修改前开始。不会恢复整个系统 UI。关闭 Native Hook 只会旁路拦截；禁用模块不会自动恢复。禁用前请先使用此入口，卸载时由卸载脚本尝试恢复。</div><button id="restoreGlobal" class="button write-control" type="button">恢复全局模糊原值</button></section>
-<section class="card"><div class="section-title">诊断</div><button id="refresh" class="button" type="button">刷新状态与诊断</button><pre id="diag" class="status">读取中…</pre></section>
+<main id="main" hidden>
+ <section class="card">
+  <h2 class="section-title">常用控制</h2>
+  <div class="row">
+   <div class="row-copy"><div id="hookLabel" class="label">Native Hook</div><div class="desc">安装系统模糊拦截</div><div id="hookState" class="state-text"></div><div id="hookMeta" class="meta-text">正在读取运行状态</div></div>
+   <div class="mdc-switch"><div class="mdc-switch__track"></div><div class="mdc-switch__thumb-underlay"><div class="mdc-switch__thumb"></div><input id="hook" class="mdc-switch__native-control write-control" type="checkbox" role="switch" aria-labelledby="hookLabel"></div></div>
+  </div>
+  <div class="row">
+   <div class="row-copy"><div id="globalLabel" class="label">全局模糊</div><div id="globalSummary" class="desc">允许 Android 使用窗口模糊</div><div id="globalState" class="state-text"></div><div id="globalMeta" class="meta-text">设置：正在读取 · 设备能力：正在读取</div></div>
+   <div class="mdc-switch"><div class="mdc-switch__track"></div><div class="mdc-switch__thumb-underlay"><div class="mdc-switch__thumb"></div><input id="global" class="mdc-switch__native-control write-control" type="checkbox" role="switch" aria-labelledby="globalLabel"></div></div>
+  </div>
+ </section>
+ <section class="card collapse-card">
+  <button id="blurMoreToggle" class="section-toggle" type="button" aria-expanded="false" aria-controls="blurMoreContent">
+   <span><span class="section-title">其他模糊控制</span><span id="childSummary" class="card-summary">SystemUI 与 Launcher</span></span><span id="blurMoreIcon" class="material-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></span>
+  </button>
+  <div id="blurMoreContent" class="collapse-content" hidden>
+   <div class="row">
+    <div class="row-copy"><div id="systemuiLabel" class="label">SystemUI 模糊</div><div class="desc">通知栏与快速设置</div><div id="systemuiState" class="state-text"></div><div id="systemuiRuntime" class="runtime-text"></div></div>
+    <div class="mdc-switch"><div class="mdc-switch__track"></div><div class="mdc-switch__thumb-underlay"><div class="mdc-switch__thumb"></div><input id="systemui" class="mdc-switch__native-control write-control" type="checkbox" role="switch" aria-labelledby="systemuiLabel"></div></div>
+   </div>
+   <div class="row">
+    <div class="row-copy"><div id="launcherLabel" class="label">Launcher / Recents 模糊</div><div class="desc">启动器与最近任务</div><div id="launcherState" class="state-text"></div><div id="launcherRuntime" class="runtime-text"></div></div>
+    <div class="mdc-switch"><div class="mdc-switch__track"></div><div class="mdc-switch__thumb-underlay"><div class="mdc-switch__thumb"></div><input id="launcher" class="mdc-switch__native-control write-control" type="checkbox" role="switch" aria-labelledby="launcherLabel"></div></div>
+   </div>
+  </div>
+ </section>
+ <section class="card">
+  <h2 class="section-title">界面设置</h2>
+  <div class="row">
+   <div class="row-copy"><div id="themeAutoLabel" class="label">跟随系统</div><div class="desc">自动使用系统浅色或深色模式</div></div>
+   <div class="mdc-switch"><div class="mdc-switch__track"></div><div class="mdc-switch__thumb-underlay"><div class="mdc-switch__thumb"></div><input id="themeAuto" class="mdc-switch__native-control" type="checkbox" role="switch" aria-labelledby="themeAutoLabel"></div></div>
+  </div>
+  <div class="row">
+   <div class="row-copy"><div id="themeDarkLabel" class="label">深色模式</div><div class="desc">手动选择 WebUI 外观</div></div>
+   <div class="mdc-switch"><div class="mdc-switch__track"></div><div class="mdc-switch__thumb-underlay"><div class="mdc-switch__thumb"></div><input id="themeDark" class="mdc-switch__native-control" type="checkbox" role="switch" aria-labelledby="themeDarkLabel"></div></div>
+  </div>
+  <div id="themeState" class="section-foot">正在检测系统主题…</div>
+ </section>
+ <section class="card">
+  <h2 class="section-title">当前状态</h2>
+  <div class="status-overview"><div id="runtimeSummary" class="status-heading">正在读取状态…</div><div id="runtimeDetails" class="status-details">正在区分保存设置与运行状态。</div></div>
+  <details class="detail-disclosure"><summary>运行详情</summary><pre id="status" class="log-text">读取中…</pre></details>
+ </section>
+ <section class="card restore-card">
+  <h2 class="section-title">恢复</h2>
+  <div class="status-overview"><div class="label">恢复系统默认模糊设置</div><div class="desc">撤销本模块保存的全局模糊修改</div></div>
+  <div class="help-copy">只恢复全局模糊设置，不会更改其他系统界面。禁用模块前可先执行恢复；卸载时会尝试恢复。</div>
+  <div class="restore-actions"><button id="restoreButton" class="mdc-button mdc-button--raised write-control" type="button" data-mdc-ripple><span class="mdc-button__ripple"></span><span class="mdc-button__label">恢复系统默认模糊</span></button></div>
+ </section>
+ <section class="card">
+  <h2 class="section-title">诊断</h2>
+  <div id="diagnosticsSummary" class="status-overview status-details">SystemUI 与 Launcher 状态待确认</div>
+  <div class="action-row">
+   <button id="refresh" class="mdc-button mdc-button--raised" type="button" data-mdc-ripple><span class="mdc-button__ripple"></span><span class="mdc-button__label">刷新诊断</span></button>
+   <button id="viewDetails" class="mdc-button mdc-button--unelevated" type="button" data-mdc-ripple aria-expanded="false"><span class="mdc-button__ripple"></span><span class="mdc-button__label">查看详细日志</span></button>
+  </div>
+  <details id="diagnosticsDetails" class="detail-disclosure"><summary>详细日志（可复制）</summary><pre id="diag" class="log-text selectable">尚未读取诊断</pre></details>
+ </section>
 </main>
-<div id="confirmDialog" class="dialog-scrim" aria-hidden="true"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div id="dialogTitle" class="dialog-title">恢复全局模糊原值？</div><div class="dialog-copy">将恢复模块首次修改前记录的设置值；如果原来没有该设置，将删除该键以恢复系统默认。此操作不会恢复其他系统 UI 效果。</div><div class="dialog-actions"><button id="cancelRestore" class="text-button" type="button">取消</button><button id="confirmRestore" class="text-button primary" type="button">恢复</button></div></div></div>
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script type="module" src="app.js"></script>
-</body></html>
+<div id="restoreDialog" class="mdc-dialog" role="alertdialog" aria-modal="true" aria-labelledby="restoreTitle" aria-describedby="restoreDescription">
+ <div class="mdc-dialog__container"><div class="mdc-dialog__surface">
+  <h2 id="restoreTitle" class="mdc-dialog__title">恢复系统默认设置？</h2>
+  <div id="restoreDescription" class="mdc-dialog__content">将恢复 Pixel Blur Controller 首次修改前记录的全局模糊设置。<p class="dialog-note">不会修改其他系统界面设置。较旧版本修改的值可能无法恢复。</p></div>
+  <div class="mdc-dialog__actions">
+   <button type="button" class="mdc-button mdc-dialog__button" data-mdc-dialog-action="close" data-mdc-ripple><span class="mdc-button__ripple"></span><span class="mdc-button__label">取消</span></button>
+   <button id="confirmRestore" type="button" class="mdc-button mdc-dialog__button primary-action" data-mdc-dialog-action="accept" data-mdc-ripple><span class="mdc-button__ripple"></span><span class="mdc-button__label">恢复</span></button>
+  </div>
+ </div></div><div class="mdc-dialog__scrim"></div>
+</div>
+<aside id="snackbar" class="mdc-snackbar"><div class="mdc-snackbar__surface" role="status" aria-relevant="additions"><div id="snackbarLabel" class="mdc-snackbar__label" aria-atomic="false"></div></div></aside>
+<script src="vendor/mdc.js"></script>
+</body>
+</html>

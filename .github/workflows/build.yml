@@ -2,7 +2,7 @@ name: Build Pixel Blur Controller
 
 on:
   push:
-    branches: [main, "ci/**", "fix/**"]
+    branches: [main, "ci/**", "fix/**", "feature/**"]
     paths-ignore:
       - pixelblur-controller-install.zip
   pull_request:
@@ -46,16 +46,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build zip unzip
-          npm install --no-save playwright
-          npx playwright install --with-deps chromium
 
       - name: Syntax checks
         shell: bash
         run: |
           set -euo pipefail
-          sh -n service.sh action.sh global_blur.sh uninstall.sh
+          sh -n service.sh action.sh global_blur.sh uninstall.sh .github/scripts/build-webui.sh
           bash -n build.sh
-          node --check webroot/app.js
+          node --check --input-type=module < webroot/app.js
           node --check .github/scripts/preview.mjs
 
       - name: Build and verify module ZIP
@@ -63,10 +61,13 @@ jobs:
         run: |
           set -euo pipefail
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
-          chmod +x build.sh service.sh action.sh global_blur.sh uninstall.sh
+          chmod +x build.sh service.sh action.sh global_blur.sh uninstall.sh .github/scripts/build-webui.sh
           ./build.sh
 
-      - name: Render WebUI light and dark previews
+      - name: Install preview browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Render WebUI state previews
         run: |
           mkdir -p preview-artifacts
           node .github/scripts/preview.mjs
@@ -85,8 +86,8 @@ jobs:
           path: preview-artifacts/*.png
           if-no-files-found: error
 
-      - name: Publish direct install download on fix branch
-        if: startsWith(github.ref, 'refs/heads/fix/') || github.ref == 'refs/heads/main'
+      - name: Publish direct install download on feature, fix, and main branches
+        if: startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/fix/') || github.ref == 'refs/heads/main'
         shell: bash
         run: |
           set -euo pipefail

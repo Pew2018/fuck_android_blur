@@ -1,0 +1,17 @@
+{
+  "name": "pixel-blur-controller-webui",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build-time dependencies for the offline KernelSU Next WebUI",
+  "devDependencies": {
+    "@material/button": "11.0.0",
+    "@material/dialog": "11.0.0",
+    "@material/linear-progress": "11.0.0",
+    "@material/ripple": "11.0.0",
+    "@material/snackbar": "11.0.0",
+    "@material/switch": "11.0.0",
+    "esbuild": "0.21.5",
+    "playwright": "1.48.2",
+    "sass": "1.32.13"
+  }
+}

@@ -16,11 +16,15 @@ BUILD="$ROOT/.build"; rm -rf "$BUILD"
 cmake -S "$ROOT" -B "$BUILD" -G Ninja -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-30 -DANDROID_STL=c++_static
 cmake --build "$BUILD" --parallel
 chmod 0755 "$ROOT/service.sh" "$ROOT/action.sh" "$ROOT/global_blur.sh" "$ROOT/uninstall.sh"
+bash "$ROOT/.github/scripts/build-webui.sh"
 rm -rf "$ROOT/lib" "$ROOT/zygisk"; mkdir -p "$ROOT/zygisk"; cp "$BUILD/libpixelblur.so" "$ROOT/zygisk/arm64-v8a.so"
 OUT="$ROOT/pixelblur-controller-install.zip"
 rm -f "$ROOT"/pixelblur-controller-*.zip
 (cd "$ROOT" && zip -r -9 "$OUT" module.prop service.sh action.sh uninstall.sh global_blur.sh webroot zygisk >/dev/null)
 unzip -l "$OUT" | grep -q 'uninstall.sh'; unzip -l "$OUT" | grep -q 'global_blur.sh'; unzip -l "$OUT" | grep -q 'action.sh'
+unzip -l "$OUT" | grep -q 'webroot/vendor/mdc.css'
+unzip -l "$OUT" | grep -q 'webroot/vendor/mdc.js'
+unzip -l "$OUT" | grep -q 'webroot/vendor/MDC-LICENSE.txt'
 zipinfo -l "$OUT" | awk '$NF == "service.sh" || $NF == "action.sh" || $NF == "uninstall.sh" || $NF == "global_blur.sh" {
   found++;
   if (substr($1,4,1) != "x" || substr($1,7,1) != "x" || substr($1,10,1) != "x") bad=1;
