@@ -28,6 +28,7 @@ try{
     const loadingMotion=await page.evaluate(async()=>{
      if(matchMedia('(prefers-reduced-motion: reduce)').matches)return{reduced:true};
      const bar=document.querySelector('#loadingProgress .mdc-linear-progress__primary-bar');
+     await new Promise(resolve=>setTimeout(resolve,750));
      const before=getComputedStyle(bar).transform;
      await new Promise(resolve=>setTimeout(resolve,350));
      const computed=getComputedStyle(bar),animations=bar.getAnimations();
