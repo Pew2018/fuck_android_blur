@@ -13,7 +13,21 @@ document.querySelectorAll('.mdc-switch').forEach(el=>{const control=new MDCSwitc
 document.querySelectorAll('.mdc-button').forEach(el=>new MDCRipple(el));
 const progress=new MDCLinearProgress($('operationProgress'));
 const loadingProgress=new MDCLinearProgress($('loadingProgress'));
-loadingProgress.open();
+let loadingStartToken=0;
+function startLoadingProgress(){
+ const token=++loadingStartToken,shell=$('loadingShell');
+ shell.hidden=false;
+ document.body.classList.add('loading-active');
+ setProgress(false);
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  if(token===loadingStartToken&&!shell.hidden&&!document.hidden)loadingProgress.open();
+ }));
+}
+function stopLoadingProgress(){
+ loadingStartToken++;
+ loadingProgress.close();
+ document.body.classList.remove('loading-active');
+}
 const snackbar=new MDCSnackbar($('snackbar'));
 const dialog=new MDCDialog($('restoreDialog'));
 window.PixelBlurMDC={MDCSwitch,MDCRipple,MDCLinearProgress,MDCDialog,MDCSnackbar};
@@ -21,7 +35,7 @@ function toast(message){$('snackbarLabel').textContent=message;snackbar.open()}
 function setProgress(active,label='正在读取系统状态…'){
  $('operationProgress').setAttribute('aria-label',label);$('operationProgress').setAttribute('aria-hidden',String(!active));
  document.body.classList.toggle('progress-active',active);
- if(active)progress.open();else progress.close();
+ if(active){stopLoadingProgress();progress.open()}else progress.close();
 }
 function execRoot(cmd,timeoutMs=15000){
  if(!ksuApi||typeof ksuApi.exec!=='function')return Promise.reject(new Error('KernelSU Next 接口不可用'));
@@ -132,10 +146,10 @@ async function refreshStatus(){
 }
 function renderPreview(mode){
  if(mode==='dark'||mode==='light'){document.documentElement.dataset.theme=mode;setSwitch('themeAuto',false,false);setSwitch('themeDark',mode==='dark',false);$('themeState').textContent='模拟主题预览'}
- if(mode==='loading'){loadingProgress.open();setProgress(false);$('main').hidden=true;$('loadingShell').hidden=false;return}
- if(mode==='error'){loadingProgress.close();setProgress(false);$('main').hidden=true;$('loadingShell').hidden=false;$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent='请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;return}
+ if(mode==='loading'){setProgress(false);$('main').hidden=true;$('loadingShell').hidden=false;startLoadingProgress();return}
+ if(mode==='error'){stopLoadingProgress();setProgress(false);$('main').hidden=true;$('loadingShell').hidden=false;$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent='请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;return}
  const globalOff=mode==='global-off',busy=mode==='busy';
- $('loadingShell').hidden=true;$('main').hidden=false;$('main').classList.add('ready');
+ stopLoadingProgress();$('loadingShell').hidden=true;$('main').hidden=false;$('main').classList.add('ready');
  hookSaved=true;globalAllowed=globalOff?false:true;systemuiSaved=true;launcherSaved=true;
  setSwitch('hook',true,false);renderGlobal({explicit:globalOff?'1':'0',allowed:!globalOff,supported:true});updateChildren();
  $('systemuiRuntime').textContent='Hook 已安装';$('launcherRuntime').textContent='等待目标进程重启';$('runtimeSummary').textContent=globalOff?'系统模糊已关闭':busy?'正在应用设置…':'Native Hook 已读取';
@@ -191,13 +205,13 @@ $('restoreButton').addEventListener('click',()=>dialog.open());
 $('confirmRestore').addEventListener('click',async()=>{dialog.close();if(writeBusy)return;setBusy(true);setProgress(true,'正在恢复系统设置…');try{const result=await sh('/system/bin/sh /data/adb/modules/pixelblur-controller/global_blur.sh restore');try{await refresh(true)}catch(_){$('runtimeSummary').textContent='已恢复，状态读取失败'}toast(result||'已恢复系统默认模糊设置')}catch(e){$('runtimeSummary').textContent='恢复失败';toast('恢复失败')}finally{setProgress(false);setBusy(false)}});
 $('retryLoad').addEventListener('click',()=>initialize());
 function revealMain(){
- loadingProgress.close();const shell=$('loadingShell');$('main').hidden=false;$('main').classList.add('ready');shell.classList.add('loading-hidden');setTimeout(()=>shell.hidden=true,180);
+ stopLoadingProgress();const shell=$('loadingShell');$('main').hidden=false;$('main').classList.add('ready');shell.classList.add('loading-hidden');setTimeout(()=>shell.hidden=true,180);
 }
 async function initialize(){
  if(preview){renderPreview(preview);return}
- $('loadingShell').hidden=false;$('loadingError').hidden=true;loadingProgress.open();$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='';
+ $('loadingShell').hidden=false;$('loadingError').hidden=true;$('loadingText').textContent='正在读取系统状态…';$('loadingSubtext').textContent='';startLoadingProgress();
  try{await refreshStatus();revealMain();$('loadingError').hidden=true;setProgress(false);$('runtimeSummary').textContent=$('runtimeSummary').textContent||'状态已更新'}
- catch(e){$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false);loadingProgress.close()}
+ catch(e){$('loadingText').textContent='无法读取模块状态';$('loadingSubtext').textContent=e?.message||'请检查 KernelSU Next 授权后重试';$('loadingError').hidden=false;setProgress(false);stopLoadingProgress()}
 }
 function init(){
  applyInitialTheme();const p=readTheme();if(p.follow)syncSystemTheme();else $('themeState').textContent='手动使用已保存的主题';
