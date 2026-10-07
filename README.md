@@ -2,9 +2,9 @@
 
 KernelSU module + standard Zygisk native module for controlling Android 16 Pixel UI Blur on supported Pixel devices.
 
-## Current release: v0.2.0
+## Current main version: 1.0.0
 
-v0.2.0 is the first stable release of the new native interception architecture and the redesigned WebUI.
+The 1.0.0 main build includes the native interception architecture and the offline classic MDC WebUI, with fixed loading and operation indicators, a stationary mobile app bar, and improved interaction feedback.
 
 The native side uses the standard Zygisk app-process module interface and directly hooks:
 
@@ -40,7 +40,7 @@ These component switches are used by the native hook when **Native Hook** is ena
 The WebUI supports both automatic and manual theme control:
 
 - **Auto-follow system theme** detects the phone's current dark/light mode when the WebUI opens.
-- While automatic mode is enabled, the WebUI periodically re-checks the system theme and also re-checks it when returning to the foreground.
+- While automatic mode is enabled, the WebUI checks the system theme at startup and re-checks it when returning to the foreground.
 - **Dark mode** can be controlled manually when automatic following is disabled.
 - The selected manual theme preference is stored locally in the WebUI.
 

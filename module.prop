@@ -1,6 +1,6 @@
 id=pixelblur-controller
 name=Pixel Blur Controller
-version=0.2.0
-versionCode=2000
+version=1.0.0
+versionCode=10000
 author=Pew2018
 description=Android 16 Pixel UI Blur Controller using standard Zygisk app-process injection and direct SurfaceControl JNI interception
