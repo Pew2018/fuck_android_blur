@@ -10,7 +10,8 @@ let execSeq=0,writeBusy=false,refreshSeq=0,refreshAgain=false,refreshPromise=nul
 const preview=new URLSearchParams(location.search).get('preview');
 const mdcSwitches=new Map();
 document.querySelectorAll('.mdc-switch').forEach(el=>{const control=new MDCSwitch(el);mdcSwitches.set(el.querySelector('input').id,control)});
-document.querySelectorAll('.mdc-button').forEach(el=>new MDCRipple(el));
+// MDCDialog owns its button ripples; do not attach a second instance to them.
+document.querySelectorAll('.mdc-button:not(.mdc-dialog__button)').forEach(el=>new MDCRipple(el));
 const progress=new MDCLinearProgress($('operationProgress'));
 
 // Keep the indicator measurable; never enter the native bridge before its first paint.
@@ -91,7 +92,28 @@ function execRoot(cmd,timeoutMs=15000){
   try{ksuApi.exec(cmd,name)}catch(e){finish(reject,e)}
  });
 }
-const sh=async cmd=>(await execRoot(cmd)).trim();
+// Native exec may block before returning even with a callback. Let UI updates paint first.
+function afterUiPaint(){
+ if(document.hidden)return Promise.resolve();
+ return new Promise(resolve=>{
+  let frame=0,task=0,done=false;
+  const finish=()=>{
+   if(done)return;done=true;
+   cancelAnimationFrame(frame);clearTimeout(task);
+   document.removeEventListener('visibilitychange',onVisibility);
+   resolve();
+  };
+  const onVisibility=()=>{if(document.hidden)finish()};
+  document.addEventListener('visibilitychange',onVisibility);
+  frame=requestAnimationFrame(()=>{
+   frame=requestAnimationFrame(()=>{
+    // Yield out of the pre-paint callback, rather than run exec in a RAF microtask.
+    task=setTimeout(finish,0);
+   });
+  });
+ });
+}
+const sh=async cmd=>{await afterUiPaint();return(await execRoot(cmd)).trim()};
 if(preview)window.PixelBlurExec=execRoot;
 async function writeProp(key,on){const expected=on?'1':'0';await sh('/system/bin/setprop '+key+' '+expected);const actual=await sh('/system/bin/getprop '+key);if(actual!==expected)throw new Error('写入读回不匹配：'+key)}
 function parsePairs(raw){return Object.fromEntries(raw.split(/\r?\n/).filter(Boolean).map(line=>{const i=line.indexOf('=');return i<0?[line,'']:[line.slice(0,i),line.slice(i+1)]}))}
@@ -227,20 +249,32 @@ async function writeAction(id,on){
   else{try{await refresh()}catch(_){}$('runtimeSummary').textContent='设置失败';toast('设置失败')}
  }finally{setProgress(false);setBusy(false)}
 }
-document.querySelectorAll('.write-control').forEach(input=>input.addEventListener('change',()=>{
+// System writes and local theme preferences have separate event/locking domains.
+document.querySelectorAll('input.write-control').forEach(input=>input.addEventListener('change',()=>{
  if(writeBusy){refreshStatus().catch(()=>{});return}
- if(input.id==='themeAuto'){
-  const follow=input.checked,p=readTheme();saveTheme(follow,p.manual);
-  if(follow)syncSystemTheme().then(()=>toast('已切换为跟随系统'));
-  else{setSwitch('themeAuto',false,false);setSwitch('themeDark',p.manual??document.documentElement.dataset.theme==='dark',false);$('themeState').textContent='手动使用已保存的主题';toast('已切换为手动主题')}
-  return;
- }
- if(input.id==='themeDark'){
-  const dark=input.checked;saveTheme(false,dark);themeSeq++;document.documentElement.dataset.theme=dark?'dark':'light';setSwitch('themeAuto',false,false);setSwitch('themeDark',dark,false);$('themeState').textContent='WebUI 主题已保存';toast(dark?'已切换为深色主题':'已切换为浅色主题');return;
- }
  if((input.id==='systemui'||input.id==='launcher')&&(globalAllowed!==true||!hookSaved)){updateChildren();return}
  writeAction(input.id,input.checked);
 }));
+$('themeAuto').addEventListener('change',()=>{
+ const follow=$('themeAuto').checked,p=readTheme();saveTheme(follow,p.manual);
+ if(follow){
+  setSwitch('themeAuto',true,false);
+  setSwitch('themeDark',document.documentElement.dataset.theme==='dark',true);
+  $('themeState').textContent='正在检测系统主题…';
+  syncSystemTheme().then(()=>{if(readTheme().follow)toast('已切换为跟随系统')});
+ }else{
+  themeSeq++;
+  setSwitch('themeAuto',false,false);
+  setTheme(p.manual??document.documentElement.dataset.theme==='dark');
+  $('themeState').textContent='手动使用已保存的主题';toast('已切换为手动主题');
+ }
+});
+$('themeDark').addEventListener('change',()=>{
+ if(readTheme().follow){setSwitch('themeDark',document.documentElement.dataset.theme==='dark',true);return}
+ const dark=$('themeDark').checked;saveTheme(false,dark);themeSeq++;
+ setTheme(dark);setSwitch('themeAuto',false,false);
+ $('themeState').textContent='WebUI 主题已保存';toast(dark?'已切换为深色主题':'已切换为浅色主题');
+});
 $('blurMoreToggle').addEventListener('click',()=>{const c=$('blurMoreContent'),open=c.hidden;c.hidden=!open;$('blurMoreToggle').setAttribute('aria-expanded',String(open));});
 $('refresh').addEventListener('click',async()=>{setProgress(true,'正在刷新状态与诊断…');try{await refresh(true);toast('诊断已刷新')}catch(_){toast('无法读取诊断')}finally{setProgress(false)}});
 $('viewDetails').addEventListener('click',()=>{const details=$('diagnosticsDetails');details.open=!details.open;$('viewDetails').setAttribute('aria-expanded',String(details.open))});

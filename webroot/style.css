@@ -1,12 +1,13 @@
-:root{--blue:#2196F3;--bg:#e6e6e6;--card:#fafafa;--text:#212121;--secondary:rgba(0,0,0,.64);--top:#303030;--line:rgba(0,0,0,.12);--disabled:#bdbdbd;--scrim:rgba(0,0,0,.45);--mdc-theme-primary:#2196F3;--mdc-theme-secondary:#2196F3;--mdc-theme-on-primary:#fff;--mdc-theme-surface:#fafafa;--mdc-theme-on-surface:#212121}
+:root{--toolbar-height:56px;--blue:#2196F3;--bg:#e6e6e6;--card:#fafafa;--text:#212121;--secondary:rgba(0,0,0,.64);--top:#303030;--line:rgba(0,0,0,.12);--disabled:#bdbdbd;--scrim:rgba(0,0,0,.45);--mdc-theme-primary:#2196F3;--mdc-theme-secondary:#2196F3;--mdc-theme-on-primary:#fff;--mdc-theme-surface:#fafafa;--mdc-theme-on-surface:#212121}
 :root[data-theme="dark"]{--bg:#181818;--card:#242424;--text:#eee;--secondary:rgba(255,255,255,.68);--top:#212121;--line:rgba(255,255,255,.12);--disabled:#616161;--scrim:rgba(0,0,0,.68);--mdc-theme-surface:#242424;--mdc-theme-on-surface:#eee}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{width:100%;height:100%;min-height:100%;margin:0}body{position:relative;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--text);font-family:Roboto,"Noto Sans",Arial,sans-serif;font-size:14px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:background-color .12s,color .12s}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{width:100%;height:100%;min-height:100%;margin:0}body{--progress-height:0px;position:relative;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--text);font-family:Roboto,"Noto Sans",Arial,sans-serif;font-size:14px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:background-color .12s,color .12s}
 button,a,.mdc-switch__native-control{-webkit-tap-highlight-color:transparent}
 button:focus-visible,.mdc-switch__native-control:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .page-header{position:relative;z-index:5;flex:none;background:var(--top);box-shadow:0 2px 4px rgba(0,0,0,.24)}
-.topbar{height:56px;min-height:56px;display:flex;align-items:center;padding:0 16px;background:var(--top);color:#fff}
+.topbar{height:var(--toolbar-height);min-height:var(--toolbar-height);display:flex;align-items:center;padding:0 16px;background:var(--top);color:#fff}
 .title{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:Roboto,"Noto Sans CJK SC","Noto Sans SC",Arial,sans-serif;font-size:20px;font-weight:500;line-height:24px;text-align:left}
-.progress-slot{position:relative;height:4px;background:var(--top)}
+body.loading-active,body.progress-active{--progress-height:4px}
+.progress-slot{position:relative;height:var(--progress-height);overflow:hidden;background:var(--top)}
 .progress-slot .mdc-linear-progress{position:absolute;inset:0;height:4px;width:100%}
 /* Preserve measurable geometry for MDC, including error/retry and WebView startup. */
 .loading-progress{visibility:hidden;opacity:0;pointer-events:none}
@@ -36,9 +37,9 @@ main{width:100%;max-width:720px;min-height:0;flex:1 1 auto;align-self:center;ove
 .dialog-note{margin:10px 0 0;font-size:13px;color:var(--secondary)}
 .mdc-dialog__surface{background-color:var(--card)!important;color:var(--text)!important;border-radius:2px!important}.mdc-dialog__title{color:var(--text)!important}.mdc-dialog__content{color:var(--secondary)!important}.mdc-dialog__scrim{background-color:var(--scrim)!important}
 .mdc-snackbar{bottom:16px}.mdc-snackbar__surface{border-radius:2px!important;background:#323232!important;color:#fff!important;box-shadow:0 3px 8px rgba(0,0,0,.28)}.mdc-snackbar__label{color:#fff!important}
-.loading-shell{position:absolute;inset:60px 0 0;z-index:2;overflow-y:auto;overscroll-behavior-y:contain;background:var(--bg);transition:opacity .16s ease}.loading-copy{padding:18px 16px}.loading-title{font-size:16px;color:var(--text)}.loading-subtitle{margin-top:6px;font-size:13px;color:var(--secondary)}.loading-error{margin-top:18px}.loading-error[hidden]{display:none}.loading-hidden{opacity:0;pointer-events:none}
+.loading-shell{position:absolute;inset:calc(var(--toolbar-height) + var(--progress-height)) 0 0;z-index:2;overflow-y:auto;overscroll-behavior-y:contain;background:var(--bg);transition:opacity .16s ease}.loading-copy{padding:18px 16px}.loading-title{font-size:16px;color:var(--text)}.loading-subtitle{margin-top:6px;font-size:13px;color:var(--secondary)}.loading-error{margin-top:18px}.loading-error[hidden]{display:none}.loading-hidden{opacity:0;pointer-events:none}
 main[hidden]{display:none!important}main.ready{animation:show-main .16s ease both}@keyframes show-main{from{opacity:0}to{opacity:1}}
-.busy .row{transition:opacity .12s;opacity:.78}
+/* Disabled MDC controls and the progress indicator communicate busy state without fading entire rows. */
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 /* Keep disclosure layout stable and clear touch-only sticky hover states in WebView. */
@@ -47,3 +48,6 @@ main[hidden]{display:none!important}main.ready{animation:show-main .16s ease bot
 
 /* Align the recovery action with the copy above it, and omit empty status labels. */
 .state-text:empty,.loading-subtitle:empty{display:none}.restore-actions{padding:0 16px 12px}
+
+/* Classic mobile landscape toolbar; system-bar insets remain managed by KernelSU. */
+@media(orientation:landscape) and (max-height:480px){:root{--toolbar-height:48px}}

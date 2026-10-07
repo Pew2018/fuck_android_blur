@@ -83,6 +83,18 @@ try{
     assert.equal(await page.locator('#diag').evaluate(e=>getComputedStyle(e).userSelect),'text');
    }
   }
+  const geometry=await page.evaluate(()=>{
+   const header=document.querySelector('.page-header').getBoundingClientRect();
+   const toolbar=document.querySelector('.topbar').getBoundingClientRect();
+   const title=document.querySelector('.title'),style=getComputedStyle(title),rect=title.getBoundingClientRect();
+   return{height:header.height,toolbar:toolbar.height,titleSize:style.fontSize,titleWeight:style.fontWeight,
+    centerDelta:Math.abs(rect.top+rect.height/2-toolbar.top-toolbar.height/2),
+    contentTop:document.getElementById(document.getElementById('main').hidden?'loadingShell':'main').getBoundingClientRect().top};
+  });
+  assert.equal(geometry.height,mode==='busy'||mode==='loading'?60:56,mode+JSON.stringify(geometry));
+  assert.equal(geometry.contentTop,geometry.height,mode+JSON.stringify(geometry));
+  assert.equal(geometry.titleSize,'20px');assert.equal(geometry.titleWeight,'500');
+  assert.ok(geometry.centerDelta<1,mode+JSON.stringify(geometry));
   await page.screenshot({path:'preview-artifacts/webui-'+mode+'.png',fullPage:true});
  }
  await page.goto('http://127.0.0.1:4173/?preview=busy');
@@ -247,6 +259,158 @@ try{
   assert.deepEqual(errors,[]);
   await startup.close();
  }
+
+ // Real touch events, not preview rendering: theme and system-write paths must work independently.
+ const touch=await browser.newPage({viewport:{width:412,height:900},isMobile:true,hasTouch:true});
+ const touchErrors=[];
+ touch.on('pageerror',error=>touchErrors.push(error.message));
+ await touch.addInitScript(()=>{
+  window.__interaction={frames:0,inputFrame:0,calls:[],listeners:{},intervals:[]};
+  const original=EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener=function(type,listener,options){
+   if(this instanceof Element&&this.matches('.mdc-dialog__button')){
+    const key=(this.id||this.dataset.mdcDialogAction)+':'+type;
+    window.__interaction.listeners[key]=(window.__interaction.listeners[key]||0)+1;
+   }
+   return original.call(this,type,listener,options);
+  };
+  let last=performance.now();
+  const frame=now=>{window.__interaction.frames++;window.__interaction.intervals.push(now-last);last=now;requestAnimationFrame(frame)};
+  requestAnimationFrame(frame);
+  document.addEventListener('change',()=>{window.__interaction.inputFrame=window.__interaction.frames},true);
+  document.addEventListener('click',()=>{window.__interaction.inputFrame=window.__interaction.frames},true);
+  const props={'persist.sys.pixelblur.hook':'1','persist.sys.pixelblur.systemui':'1','persist.sys.pixelblur.launcher':'1'};
+  let allowed=true;
+  window.ksu={exec:(cmd,name)=>{
+   const data=window.__interaction;
+   data.calls.push({cmd,frame:data.frames,inputFrame:data.inputFrame,busy:document.body.classList.contains('busy'),
+    progress:document.body.classList.contains('progress-active'),width:document.getElementById('operationProgress').getBoundingClientRect().width});
+   let out='',match;
+   if(cmd.includes('dumpsys uimode'))out='mComputedNightMode=false';
+   else if((match=cmd.match(/^\/system\/bin\/setprop (\S+) ([01])$/)))props[match[1]]=match[2];
+   else if((match=cmd.match(/^\/system\/bin\/getprop (\S+)$/)))out=props[match[1]]||'';
+   else if(cmd.endsWith('global_blur.sh set allow'))allowed=true;
+   else if(cmd.endsWith('global_blur.sh set deny'))allowed=false;
+   else if(cmd.endsWith('global_blur.sh restore')){allowed=true;out='已恢复'}
+   else if(cmd.includes('__WM_BEGIN__'))out='hook='+props['persist.sys.pixelblur.hook']+'\nglobal='+(allowed?'0':'1')+
+    '\nsystemui='+props['persist.sys.pixelblur.systemui']+'\nlauncher='+props['persist.sys.pixelblur.launcher']+
+    '\n__WM_BEGIN__\nBlur supported on device: true\nBlur enabled: '+allowed+
+    '\n__WM_END__\nsystemui.pid=1234\nsystemui.hook=installed\nlauncher.pid=5678\nlauncher.hook=installed';
+   else out='模拟诊断';
+   // A short synchronous native-entry stall: production never contains this loop.
+   const until=performance.now()+60;while(performance.now()<until){}
+   setTimeout(()=>window[name](0,out,''),30);
+  }};
+ });
+ await touch.goto('http://127.0.0.1:4173/');
+ await touch.waitForSelector('#main.ready',{state:'visible'});
+ assert.equal(await touch.locator('.page-header').evaluate(el=>el.getBoundingClientRect().height),56);
+ const listeners=await touch.evaluate(()=>window.__interaction.listeners);
+ for(const button of ['close','confirmRestore']){
+  assert.equal(listeners[button+':focus'],1,JSON.stringify(listeners));
+  assert.equal(listeners[button+':touchstart'],1,JSON.stringify(listeners));
+ }
+ async function tapWrite(id,expected){
+  const start=await touch.evaluate(()=>window.__interaction.calls.length);
+  await touch.locator('#'+id).tap();
+  await touch.waitForFunction(n=>window.__interaction.calls.length>n,start);
+  await touch.waitForFunction(()=>!document.body.classList.contains('busy')&&!document.body.classList.contains('progress-active'));
+  const calls=await touch.evaluate(n=>window.__interaction.calls.slice(n),start);
+  assert.equal(calls[0].cmd,expected,JSON.stringify(calls));
+  assert.ok(calls[0].frame-calls[0].inputFrame>=2,'Write must cross painted frames: '+JSON.stringify(calls));
+  assert.equal(calls[0].busy,true);assert.equal(calls[0].progress,true);assert.ok(calls[0].width>0);
+  assert.equal(await touch.locator('.page-header').evaluate(el=>el.getBoundingClientRect().height),56);
+  return calls;
+ }
+ await touch.locator('#blurMoreToggle').tap();
+ for(const id of ['systemui','launcher']){
+  const calls=await tapWrite(id,'/system/bin/setprop persist.sys.pixelblur.'+id+' 0');
+  assert.equal(calls[1].cmd,'/system/bin/getprop persist.sys.pixelblur.'+id);
+  assert.ok(calls[2].cmd.includes('__WM_BEGIN__'));
+  assert.equal(await touch.locator('#'+id).isChecked(),false);
+ }
+ await tapWrite('hook','/system/bin/setprop persist.sys.pixelblur.hook 0');
+ assert.equal(await touch.locator('#systemui').isDisabled(),true);
+ await tapWrite('hook','/system/bin/setprop persist.sys.pixelblur.hook 1');
+ await tapWrite('global','/system/bin/sh /data/adb/modules/pixelblur-controller/global_blur.sh set deny');
+ assert.equal(await touch.locator('#launcher').isDisabled(),true);
+ await tapWrite('global','/system/bin/sh /data/adb/modules/pixelblur-controller/global_blur.sh set allow');
+ const themeStart=await touch.evaluate(()=>window.__interaction.calls.length);
+ await touch.locator('#themeAuto').tap();
+ assert.equal(await touch.locator('#themeAuto').isChecked(),false);
+ assert.equal(await touch.locator('#themeDark').isDisabled(),false);
+ await touch.locator('#themeDark').tap();
+ assert.equal(await touch.locator('html').getAttribute('data-theme'),'dark');
+ assert.equal(await touch.evaluate(()=>localStorage.getItem('pixelBlur.theme.manualDark')),'1');
+ assert.equal(await touch.evaluate(()=>window.__interaction.calls.length),themeStart,'Local theme taps must not write/read system settings');
+ await touch.screenshot({path:'preview-artifacts/webui-interaction-dark.png'});
+ await touch.reload();await touch.waitForSelector('#main.ready',{state:'visible'});
+ assert.equal(await touch.locator('html').getAttribute('data-theme'),'dark');
+ await touch.locator('#themeAuto').tap();
+ await touch.waitForFunction(()=>document.documentElement.dataset.theme==='light');
+ assert.equal(await touch.locator('#themeDark').isDisabled(),true);
+ await touch.locator('#themeAuto').tap();
+ assert.equal(await touch.locator('html').getAttribute('data-theme'),'dark','Leaving follow-system restores saved manual dark mode');
+ const refreshStart=await touch.evaluate(()=>window.__interaction.calls.length);
+ await touch.locator('#refresh').tap();
+ await touch.waitForFunction(n=>window.__interaction.calls.length>=n+2,refreshStart);
+ await touch.waitForFunction(()=>!document.body.classList.contains('progress-active'));
+ const refreshCalls=await touch.evaluate(n=>window.__interaction.calls.slice(n),refreshStart);
+ assert.ok(refreshCalls[0].frame-refreshCalls[0].inputFrame>=2);
+ assert.equal(refreshCalls[0].progress,true);
+ assert.ok(refreshCalls[0].cmd.includes('__WM_BEGIN__'));
+ assert.equal(refreshCalls[1].cmd,'/system/bin/sh /data/adb/modules/pixelblur-controller/action.sh');
+ await touch.locator('#restoreButton').tap();
+ await touch.waitForSelector('#restoreDialog.mdc-dialog--open');
+ const restoreStart=await touch.evaluate(()=>window.__interaction.calls.length);
+ await touch.locator('#confirmRestore').tap();
+ await touch.waitForFunction(n=>window.__interaction.calls.length>=n+3,restoreStart);
+ await touch.waitForFunction(()=>!document.body.classList.contains('busy')&&!document.body.classList.contains('progress-active'));
+ const restoreCalls=await touch.evaluate(n=>window.__interaction.calls.slice(n),restoreStart);
+ assert.equal(restoreCalls[0].cmd,'/system/bin/sh /data/adb/modules/pixelblur-controller/global_blur.sh restore');
+ assert.ok(restoreCalls[0].frame-restoreCalls[0].inputFrame>=2);
+ assert.equal(restoreCalls[0].busy,true);assert.equal(restoreCalls[0].progress,true);
+ // Run an actual compositor touch gesture on a long page, without firing native reads.
+ await touch.locator('#blurMoreToggle').tap();
+ await touch.locator('#viewDetails').tap();
+ await touch.evaluate(()=>{
+  document.getElementById('diag').textContent=Array.from({length:120},(_,i)=>'诊断预览 '+i).join('\n');
+  document.getElementById('main').scrollTop=0;
+  window.__interaction.intervals=[];
+ });
+ const scrollCalls=await touch.evaluate(()=>window.__interaction.calls.length);
+ const session=await touch.context().newCDPSession(touch);
+ await session.send('Input.synthesizeScrollGesture',{x:206,y:650,yDistance:-500,speed:800,gestureSourceType:'touch'});
+ const touchScroll=await touch.evaluate(()=>{
+  const main=document.getElementById('main'),header=document.querySelector('.page-header').getBoundingClientRect();
+  const intervals=window.__interaction.intervals.slice(1).sort((a,b)=>a-b);
+  return{scrollTop:main.scrollTop,windowY:window.scrollY,headerTop:header.top,headerHeight:header.height,
+   mainTop:main.getBoundingClientRect().top,frames:intervals.length,p95:intervals[Math.floor(intervals.length*.95)],max:intervals.at(-1)};
+ });
+ console.log('Touch-scroll frame diagnostic (CI, not a device FPS guarantee):',JSON.stringify(touchScroll));
+ assert.ok(touchScroll.scrollTop>0,JSON.stringify(touchScroll));
+ assert.equal(touchScroll.headerTop,0);assert.equal(touchScroll.windowY,0);
+ assert.equal(touchScroll.headerHeight,56);assert.equal(touchScroll.mainTop,56);
+ assert.equal(await touch.evaluate(()=>window.__interaction.calls.length),scrollCalls);
+ await touch.screenshot({path:'preview-artifacts/webui-touch-scroll.png'});
+ await session.detach();
+ await touch.setViewportSize({width:900,height:412});
+ const landscape=await touch.evaluate(()=>{
+  const bar=document.querySelector('.topbar').getBoundingClientRect(),title=document.querySelector('.title').getBoundingClientRect();
+  return{height:bar.height,header:document.querySelector('.page-header').getBoundingClientRect().height,
+   centerDelta:Math.abs(title.top+title.height/2-bar.top-bar.height/2),main:document.getElementById('main').getBoundingClientRect().top};
+ });
+ assert.equal(landscape.height,48);assert.equal(landscape.header,48);assert.equal(landscape.main,48);
+ assert.ok(landscape.centerDelta<1);
+ await touch.screenshot({path:'preview-artifacts/webui-landscape.png'});
+ await touch.goto('http://127.0.0.1:4173/?preview=busy');
+ await touch.waitForSelector('#main.ready');
+ assert.equal(await touch.locator('.page-header').evaluate(el=>el.getBoundingClientRect().height),52);
+ assert.equal(await touch.locator('#operationProgress').evaluate(el=>el.getBoundingClientRect().top),48);
+ assert.deepEqual(touchErrors,[]);
+ await touch.close();
+ console.log('Real touch controls, painted feedback before native writes/refresh/restore, independent persisted themes, single dialog ripples, touch scrolling, and portrait/landscape header geometry passed.');
+
  const hiddenStart=await browser.newPage({viewport:{width:412,height:900}});
  await hiddenStart.addInitScript(()=>{
   window.__hidden=true;window.__nativeCalls=0;
