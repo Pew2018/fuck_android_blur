@@ -30,8 +30,10 @@ try{
      const bar=document.querySelector('#loadingProgress .mdc-linear-progress__primary-bar');
      const before=getComputedStyle(bar).transform;
      await new Promise(resolve=>setTimeout(resolve,350));
-     return{reduced:false,before,after:getComputedStyle(bar).transform};
+     const computed=getComputedStyle(bar),animations=bar.getAnimations();
+     return{reduced:false,before,after:computed.transform,animationName:computed.animationName,animationDuration:computed.animationDuration,animations:animations.map(animation=>({playState:animation.playState,currentTime:animation.currentTime}))};
     });
+    console.log('Loading animation diagnostic:',JSON.stringify(loadingMotion));
     if(!loadingMotion.reduced)assert.notEqual(loadingMotion.before,loadingMotion.after,'MDC loading indicator should keep animating');
     assert.equal(await page.locator('#main').isVisible(),false);
     assert.equal(await page.locator('#loadingSubtext').isVisible(),false);
