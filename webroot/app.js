@@ -20,7 +20,13 @@ function startLoadingProgress(){
  document.body.classList.add('loading-active');
  setProgress(false);
  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-  if(token===loadingStartToken&&!shell.hidden&&!document.hidden)loadingProgress.open();
+  if(token===loadingStartToken&&!shell.hidden&&!document.hidden){
+   const root=loadingProgress.root;
+   root.classList.remove('mdc-linear-progress--animation-ready');
+   root.getBoundingClientRect();
+   root.classList.add('mdc-linear-progress--animation-ready');
+   loadingProgress.open();
+  }
  }));
 }
 function stopLoadingProgress(){

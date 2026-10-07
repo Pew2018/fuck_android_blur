@@ -27,7 +27,7 @@ try{
     await page.waitForFunction(()=>document.querySelector('#loadingProgress').classList.contains('mdc-linear-progress--animation-ready'));
     const loadingMotion=await page.evaluate(async()=>{
      if(matchMedia('(prefers-reduced-motion: reduce)').matches)return{reduced:true};
-     const bar=document.querySelector('#loadingProgress .mdc-linear-progress__primary-bar .mdc-linear-progress__bar-inner');
+     const bar=document.querySelector('#loadingProgress .mdc-linear-progress__primary-bar');
      const before=getComputedStyle(bar).transform;
      await new Promise(resolve=>setTimeout(resolve,350));
      return{reduced:false,before,after:getComputedStyle(bar).transform};
