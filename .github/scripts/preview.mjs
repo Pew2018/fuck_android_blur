@@ -25,6 +25,14 @@ try{
    if(mode==='error')assert.equal(await page.locator('#retryLoad').isVisible(),true);
    else {
     await page.waitForFunction(()=>document.querySelector('#loadingProgress').classList.contains('mdc-linear-progress--animation-ready'));
+    const loadingMotion=await page.evaluate(async()=>{
+     if(matchMedia('(prefers-reduced-motion: reduce)').matches)return{reduced:true};
+     const bar=document.querySelector('#loadingProgress .mdc-linear-progress__primary-bar .mdc-linear-progress__bar-inner');
+     const before=getComputedStyle(bar).transform;
+     await new Promise(resolve=>setTimeout(resolve,350));
+     return{reduced:false,before,after:getComputedStyle(bar).transform};
+    });
+    if(!loadingMotion.reduced)assert.notEqual(loadingMotion.before,loadingMotion.after,'MDC loading indicator should keep animating');
     assert.equal(await page.locator('#main').isVisible(),false);
     assert.equal(await page.locator('#loadingSubtext').isVisible(),false);
     assert.equal(await page.locator('#loadingProgress.mdc-linear-progress--indeterminate').count(),1);
@@ -33,6 +41,13 @@ try{
    }
   }else{
    await page.waitForSelector('#main.ready');
+   const headerLayout=await page.evaluate(()=>{
+    const toolbar=document.querySelector('.topbar').getBoundingClientRect(),title=document.querySelector('.title').getBoundingClientRect();
+    return{toolbarHeight:toolbar.height,titleLeft:title.left,titleCenter:title.top+title.height/2,toolbarCenter:toolbar.top+toolbar.height/2};
+   });
+   assert.equal(headerLayout.toolbarHeight,56,JSON.stringify(headerLayout));
+   assert.equal(headerLayout.titleLeft,16,JSON.stringify(headerLayout));
+   assert.ok(Math.abs(headerLayout.titleCenter-headerLayout.toolbarCenter)<1,JSON.stringify(headerLayout));
    assert.equal(await page.evaluate(()=>!!window.PixelBlurMDC?.MDCSwitch),true);
    assert.ok(await page.locator('.mdc-button').count()>0);
    assert.equal(await page.locator('.topbar .subtitle').count(),0);
@@ -61,6 +76,21 @@ try{
   }
   await page.screenshot({path:'preview-artifacts/webui-'+mode+'.png',fullPage:true});
  }
+ await page.goto('http://127.0.0.1:4173/?preview=busy');
+ await page.waitForSelector('#main.ready');
+ await page.waitForFunction(()=>document.body.classList.contains('progress-active'));
+ await page.evaluate(()=>{document.getElementById('main').scrollTop=420});
+ await page.waitForTimeout(100);
+ const scrollLayout=await page.evaluate(()=>{
+  const header=document.querySelector('.page-header').getBoundingClientRect(),toolbar=document.querySelector('.topbar').getBoundingClientRect(),progress=document.getElementById('operationProgress').getBoundingClientRect(),main=document.getElementById('main');
+  return{scrollTop:main.scrollTop,headerTop:header.top,toolbarHeight:toolbar.height,progressTop:progress.top,progressVisible:getComputedStyle(document.getElementById('operationProgress')).visibility};
+ });
+ assert.ok(scrollLayout.scrollTop>0,JSON.stringify(scrollLayout));
+ assert.equal(scrollLayout.headerTop,0,JSON.stringify(scrollLayout));
+ assert.equal(scrollLayout.toolbarHeight,56,JSON.stringify(scrollLayout));
+ assert.equal(scrollLayout.progressTop,56,JSON.stringify(scrollLayout));
+ assert.equal(scrollLayout.progressVisible,'visible',JSON.stringify(scrollLayout));
+ await page.screenshot({path:'preview-artifacts/webui-scroll-fixed-header.png'});
  await page.goto('http://127.0.0.1:4173/?preview=light');
  await page.waitForSelector('#main.ready');
  const disclosure=page.locator('#blurMoreToggle');
