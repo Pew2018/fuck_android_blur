@@ -12,26 +12,41 @@ const mdcSwitches=new Map();
 document.querySelectorAll('.mdc-switch').forEach(el=>{const control=new MDCSwitch(el);mdcSwitches.set(el.querySelector('input').id,control)});
 document.querySelectorAll('.mdc-button').forEach(el=>new MDCRipple(el));
 const progress=new MDCLinearProgress($('operationProgress'));
-const loadingProgress=new MDCLinearProgress($('loadingProgress'));
-let loadingStartToken=0;
+
+let loadingProgress=null,loadingStartToken=0,loadingFrame=0;
+function ensureLoadingProgress(){
+ if(!loadingProgress)loadingProgress=new MDCLinearProgress($('loadingProgress'));
+ return loadingProgress;
+}
+function cancelLoadingProgressFrame(){
+ if(loadingFrame){cancelAnimationFrame(loadingFrame);loadingFrame=0}
+}
+function scheduleLoadingProgress(token,shell){
+ cancelLoadingProgressFrame();
+ if(document.hidden)return;
+ loadingFrame=requestAnimationFrame(()=>{
+  loadingFrame=requestAnimationFrame(()=>{
+   loadingFrame=0;
+   if(token!==loadingStartToken||shell.hidden||document.hidden)return;
+   const indicator=ensureLoadingProgress(),root=indicator.root;
+   root.classList.remove('mdc-linear-progress--animation-ready');
+   root.getBoundingClientRect();
+   root.classList.add('mdc-linear-progress--animation-ready');
+   indicator.open();
+  });
+ });
+}
 function startLoadingProgress(){
  const token=++loadingStartToken,shell=$('loadingShell');
  shell.hidden=false;
  document.body.classList.add('loading-active');
  setProgress(false);
- requestAnimationFrame(()=>requestAnimationFrame(()=>{
-  if(token===loadingStartToken&&!shell.hidden&&!document.hidden){
-   const root=loadingProgress.root;
-   root.classList.remove('mdc-linear-progress--animation-ready');
-   root.getBoundingClientRect();
-   root.classList.add('mdc-linear-progress--animation-ready');
-   loadingProgress.open();
-  }
- }));
+ scheduleLoadingProgress(token,shell);
 }
 function stopLoadingProgress(){
  loadingStartToken++;
- loadingProgress.close();
+ cancelLoadingProgressFrame();
+ if(loadingProgress)loadingProgress.close();
  document.body.classList.remove('loading-active');
 }
 const snackbar=new MDCSnackbar($('snackbar'));
@@ -223,5 +238,5 @@ function init(){
  applyInitialTheme();const p=readTheme();if(p.follow)syncSystemTheme();else $('themeState').textContent='手动使用已保存的主题';
  setSwitch('themeAuto',p.follow,false);initialize();
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&readTheme().follow)syncSystemTheme()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&document.body.classList.contains('loading-active'))scheduleLoadingProgress(loadingStartToken,$('loadingShell'));if(!document.hidden&&readTheme().follow)syncSystemTheme()});
 init();
