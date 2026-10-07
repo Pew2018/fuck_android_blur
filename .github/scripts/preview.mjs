@@ -25,6 +25,12 @@ try{
    if(mode==='error')assert.equal(await page.locator('#retryLoad').isVisible(),true);
    else {
     await page.waitForFunction(()=>document.querySelector('#loadingProgress').classList.contains('mdc-linear-progress--animation-ready'));
+    const loadingLayout=await page.evaluate(()=>{
+     const root=document.querySelector('#loadingProgress');
+     return{width:root.getBoundingClientRect().width,primaryHalf:getComputedStyle(root).getPropertyValue('--mdc-linear-progress-primary-half').trim()};
+    });
+    assert.ok(loadingLayout.width>0,JSON.stringify(loadingLayout));
+    assert.notEqual(loadingLayout.primaryHalf,'0px',JSON.stringify(loadingLayout));
     const loadingMotion=await page.evaluate(async()=>{
      if(matchMedia('(prefers-reduced-motion: reduce)').matches)return{reduced:true};
      const bar=document.querySelector('#loadingProgress .mdc-linear-progress__primary-bar');
