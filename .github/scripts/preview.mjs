@@ -224,6 +224,8 @@ try{
   await startup.waitForSelector('#retryLoad',{state:'visible'});
   assert.equal(await startup.locator('#loadingProgress').isVisible(),false);
   assert.equal(await startup.locator('#loadingProgress').getAttribute('aria-hidden'),'true');
+  assert.equal(await startup.locator('#loadingProgress .mdc-linear-progress__secondary-bar').isVisible(),false);
+  await startup.waitForFunction(()=>getComputedStyle(document.querySelector('#loadingProgress')).opacity==='0');
   await startup.screenshot({path:'preview-artifacts/webui-startup-error-'+colorScheme+'.png'});
   await startup.locator('#retryLoad').click();
   await startup.waitForFunction(()=>window.__bridge.pending.length===1);

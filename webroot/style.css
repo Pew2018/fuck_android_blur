@@ -11,6 +11,8 @@ button:focus-visible,.mdc-switch__native-control:focus-visible,summary:focus-vis
 /* Preserve measurable geometry for MDC, including error/retry and WebView startup. */
 .loading-progress{visibility:hidden;opacity:0;pointer-events:none}
 body.loading-active .loading-progress{visibility:visible;opacity:1}
+/* MDC explicitly makes the secondary bar visible; hide it immediately once reading ends. */
+body:not(.loading-active) .loading-progress .mdc-linear-progress__bar{visibility:hidden}
 .operation-progress{visibility:hidden;opacity:0;pointer-events:none;transition:opacity .15s}
 body.progress-active .operation-progress{visibility:visible;opacity:1}
 main{width:100%;max-width:720px;min-height:0;flex:1 1 auto;align-self:center;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;padding:12px 12px 28px}
