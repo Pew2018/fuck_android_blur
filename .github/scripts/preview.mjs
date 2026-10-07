@@ -380,7 +380,23 @@ try{
  });
  const scrollCalls=await touch.evaluate(()=>window.__interaction.calls.length);
  const session=await touch.context().newCDPSession(touch);
- await session.send('Input.synthesizeScrollGesture',{x:206,y:650,yDistance:-500,speed:800,gestureSourceType:'touch'});
+ // Wait for asynchronous scroll hit-testing updates, then dispatch a literal finger swipe.
+ await touch.waitForSelector('#restoreDialog.mdc-dialog--closing',{state:'hidden'});
+ await touch.waitForTimeout(100);
+ const hit=await touch.evaluate(()=>{
+  const main=document.getElementById('main'),target=document.elementFromPoint(206,650);
+  return{scrollHeight:main.scrollHeight,clientHeight:main.clientHeight,target:target?.outerHTML.slice(0,160),insideMain:!!target?.closest('#main')};
+ });
+ console.log('Touch scroll hit test:',JSON.stringify(hit));
+ assert.ok(hit.scrollHeight>hit.clientHeight,JSON.stringify(hit));
+ assert.equal(hit.insideMain,true,JSON.stringify(hit));
+ await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:206,y:650}]});
+ for(let y=630;y>=250;y-=20){
+  await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:206,y}]});
+  await touch.waitForTimeout(16);
+ }
+ await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await touch.waitForTimeout(150);
  const touchScroll=await touch.evaluate(()=>{
   const main=document.getElementById('main'),header=document.querySelector('.page-header').getBoundingClientRect();
   const intervals=window.__interaction.intervals.slice(1).sort((a,b)=>a-b);
